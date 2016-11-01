@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">新大陆BLE测试工具</string>
+    <string name="ok">确定</string>
+    <string name="cancel">取消</string>
+	<string name="unknown">未知</string>
+    <string name="direction_send">发送</string>
+    <string name="direction_received">接收</string>
+    <string name="direction_log">日志</string>
+    <string name="select">选择</string>
+    <string name="active">主动</string>
+    <string name="passive">被动</string>
+    <string name="disconnect">断开</string>
+    <string name="none">无</string>
+    <string name="characteristic">特征值</string>
+    <string name="property">特性</string>
+    <string name="rx">RX</string>
+    <string name="tx">TX</string>
+    <string name="rx_description">接收: %1$d</string>
+    <string name="tx_description">发送: %1$d (%2$d 成功, %3$d 失败)</string>
+    <string name="succ">成功</string>
+    <string name="fail">失败</string>
+    
+    <string name="scan_device">扫描设备</string>
+    <string name="stop_scan">停止搜索</string>
+    <string name="delete_device">删除设备</string>
+    <string name="clear_text">清空文本</string>
+    <string name="send_setting">发送设置</string>
+    <string name="setting_uuid">设置UUID</string>
+    <string name="select_uuid">选择UUID</string>
+    <string name="about">关于</string>
+    <string name="show_time">显示时间</string>
+    <string name="receive_encoding">接收编码:</string>
+    <string name="utf8">UTF8</string>
+    <string name="hex">HEX</string>
+    <string name="send_back">自动回发</string>
+    <string name="auto_reconnect">断线重连</string>
+    <string name="send_history">发送历史</string>
+    <string name="reconnect_interval">尝试间隔(秒):</string>
+    <string name="set_succ">设置成功</string>
+    <string name="try_connecting">尝试连接中&#8230;</string>
+
+    <string name="service_uuid">服务的UUID</string>
+    <string name="read_uuid">读取的UUID</string>
+    <string name="write_uuid">写入的UUID</string>
+    <string name="uuid_format">00000000&#8211;0000&#8211;0000&#8211;0000&#8211;000000000000</string>
+    
+    <string name="scan_device_start">开始扫描BLE设备</string>
+    <string name="scan_device_stop">停止扫描BLE设备</string>
+    <string name="scan_result">扫描结果</string>
+    <string name="scan_timeout">扫描时长(秒):</string>
+    
+    <string name="connection_is_close">连接已断开</string>
+    <string name="connect_succ">连接成功</string>
+    
+    <string name="reconnect_start">启动断线重连机制</string>
+    <string name="reconnect_stop">终止断线重连机制</string>
+    <string name="reconnecting">重连中&#8230;</string>
+    <string name="reconnect_succ">重连成功</string>
+    <string name="reconnect_fail">重连失败</string>
+    
+    <string name="send_succ">发送成功</string>
+    <string name="send_fail">发送失败</string>
+    
+    <string name="hint_utf8">字符串字符串字符串</string>
+    <string name="hint_hex">FFFFFFFFF</string>
+
+    <string name="select_service">请选择服务</string>
+    <string name="select_read_write_characteristic">请选择读写特征的UUID</string>
+    <string name="read_characteristic">读特征</string>
+    <string name="write_characteristic">写特征</string>
+    <string name="read_characteristic_not_select">读特征未选择，故保持不变</string>
+    <string name="write_characteristic_not_select">写特征未选择，故保持不变</string>
+
+    <string name="never_select_uuid_when_connect">连接时不选择UUID</string>
+
+    <string name="err_buff_cannot_be_null">字节数组不能为空</string>
+    <string name="err_str_cannot_be_null">字符串不能为空</string>
+    <string name="err_str_len_cannot_be_zero">字符串长度不能为零</string>
+    <string name="err_str_len_must_be_even">字符串长度必须为偶数</string>
+    <string name="err_str_has_illegal_char">字符串中含有不合法字符</string>
+    
+    <string name="err_uuid_format_service">设置失败:服务的UUID格式错误</string>
+    <string name="err_uuid_format_read">设置失败:读取的UUID格式错误</string>
+    <string name="err_uuid_format_write">设置失败:写入的UUID格式错误</string>
+    <string name="err_service_not_found_any">未找到任何服务</string>
+    <string name="err_characteristic_not_found_any">未找到任何特征值</string>
+    <string name="err_service_not_found">未找到服务</string>
+    <string name="err_read_characteristic_not_found">未找到读特征</string>
+    <string name="err_write_characteristic_not_found">未找到写特征</string>
+    <string name="succ_service_found">已找到服务</string>
+    <string name="succ_read_characteristic_found">已找到读特征</string>
+    <string name="succ_write_characteristic_found">已找到写特征</string>
+
+    <string name="err_ble_connect_param_cannot_be_null">BLE连接参数不能为空</string>
+    <string name="err_ble_connect_nothing">未连接上任何BLE设备</string>
+    <string name="err_bluetooth_is_not_enabled">蓝牙未打开</string>
+    <string name="err_ble_connect_fail">连接BLE设备失败</string>
+    <string name="err_ble_discover_service_fail">未找到相应的BLE服务</string>
+    <string name="err_ble_found_characteristic_fail">未找到相应的BLE特征</string>
+    <string name="err_ble_enable_notification_fail">BLE通知开启失败</string>
+
+    <string name="err_get_about">获取"关于"信息失败</string>
+    
+    <string name="err_callback_func_cannot_be_null">回调函数不能为空</string>
+    <string name="err_send_history_is_empty">发送历史记录为空</string>
+
+</resources>

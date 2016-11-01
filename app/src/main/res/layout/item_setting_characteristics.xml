@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="?android:attr/listPreferredItemHeightSmall">
+
+    <TextView
+        android:id="@+id/characteristic_description_tv"
+        android:layout_width="@dimen/dialog_item_characteristic_width"
+        android:layout_height="wrap_content" />
+
+    <RadioButton
+        android:id="@+id/read_characteristic_rb"
+        android:layout_width="@dimen/dialog_item_characteristic_radio_width"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/dialog_horizontal_padding"
+        android:gravity="center_horizontal" />
+
+    <RadioButton
+        android:id="@+id/write_characteristic_rb"
+        android:layout_width="@dimen/dialog_item_characteristic_radio_width"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/dialog_horizontal_padding"
+        android:gravity="center_horizontal" />
+</LinearLayout>
