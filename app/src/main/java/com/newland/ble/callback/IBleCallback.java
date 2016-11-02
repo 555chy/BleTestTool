@@ -20,8 +20,15 @@ public interface IBleCallback {
 	/** 接收到数据 */
 	void onRead(byte[] value);
 
-	/** 发送结果 */
-	void onWriteReturn(boolean result, String errMsg);
+	/**
+	 * 数据发送结果回调
+	 *
+	 * @param result                    发送是否成功
+	 * @param errMsg                    发送失败时的错误描述
+	 * @param preparedSendBytesCount 预计要发送的字节总数
+	 * @param sendSuccBytesCount      发送成功的字节数
+	 */
+	void onWriteReturn(boolean result, String errMsg, int preparedSendBytesCount, int sendSuccBytesCount);
 
 	/** 开始重连 */
 	void onReconnectStart();

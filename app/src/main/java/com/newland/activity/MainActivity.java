@@ -1,10 +1,13 @@
 package com.newland.activity;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -39,8 +42,6 @@ import com.newland.model.SendHistoryModel;
 import com.newland.utils.HexConvertUtils;
 import com.newland.utils.MyPref;
 import com.newland.utils.MyUtils;
-
-import org.w3c.dom.Text;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -121,12 +122,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private String readUuid;
 	/** 写特征UUID */
 	private String writeUuid;
-	/** 接收(下行流量)个数 */
-	private int rxNum;
-	/** 接收(上行流量)个数 */
-	private int txNum;
-	/** 接收(上行流量)失败个数 */
-	private int txFailNum;
+	/** 接收(下行流量)字节数 */
+	private int rxBytesCount;
+	/** 接收(上行流量)字节数 */
+	private int txBytesCount;
+	/** 预期接收(上行流量)字节数 */
+	private int txTotalBytesCount;
 	/** 数据存储 */
 	private MyPref myPref;
 	/** 发送的历史记录 */
@@ -179,7 +180,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		public void onRead(byte[] value) {
 			MsgSendModel model = new MsgSendModel(isUtf8 ? EncodingType.UTF8 : EncodingType.HEX, value);
 			addText(model, Direction.RECEIVED);
-			rxNum++;
+			rxBytesCount += value.length;
 			resetRx();
 			if (isAutoSendBack) {
 				sendMsg(model);
@@ -187,7 +188,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		}
 
 		@Override
-		public void onWriteReturn(boolean result, String errMsg) {
+		public void onWriteReturn(boolean result, String errMsg, int preparedSendBytesCount, int sendSuccBytesCount) {
 			if (result) {
 				addLog(R.string.send_succ);
 			} else {
@@ -197,10 +198,8 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 					addLog(getResources().getString(R.string.send_fail) + " : " + errMsg);
 				}
 			}
-			txNum++;
-			if(!result) {
-				txFailNum++;
-			}
+			txTotalBytesCount += preparedSendBytesCount;
+			txBytesCount += sendSuccBytesCount;
 			resetTx();
 		}
 
@@ -940,7 +939,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				rxTv.setText(String.format(getResources().getString(R.string.rx_description), rxNum));
+				rxTv.setText(String.format(getResources().getString(R.string.rx_description), rxBytesCount));
 			}
 		});
 	}
@@ -949,11 +948,10 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	 * 设置发送数据统计值
 	 */
 	private void resetTx() {
-		final int txSuccNum = txNum - txFailNum;
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				txTv.setText(String.format(getResources().getString(R.string.tx_description), txNum, txSuccNum, txFailNum));
+				txTv.setText(String.format(getResources().getString(R.string.tx_description), txBytesCount, txTotalBytesCount - txBytesCount, txTotalBytesCount));
 			}
 		});
 	}
@@ -966,9 +964,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 			msgList.clear();
 		}
 		msgTv.setText("");
-		rxNum = 0;
-		txNum = 0;
-		txFailNum = 0;
+		rxBytesCount = 0;
+		txBytesCount = 0;
+		txTotalBytesCount = 0;
 		resetRx();
 		resetTx();
 	}

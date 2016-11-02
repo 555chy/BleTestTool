@@ -17,8 +17,8 @@
     <string name="property">特性</string>
     <string name="rx">RX</string>
     <string name="tx">TX</string>
-    <string name="rx_description">接收: %1$d</string>
-    <string name="tx_description">发送: %1$d (%2$d 成功, %3$d 失败)</string>
+    <string name="rx_description">接收(字节数): %1$d</string>
+    <string name="tx_description">发送(字节数): %1$d (失败字节数: %2$d, 预期发送字节数: %3$d)</string>
     <string name="succ">成功</string>
     <string name="fail">失败</string>
     

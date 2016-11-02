@@ -70,7 +70,7 @@ public class BleConnection {
 		bleCallback.log("write all data=" + HexConvertUtils.byteArrToHexStr(context, buffer) + "\n" + "write divide package count = " + Math.ceil((float) buffer.length / (float) PACKAGE_DATA_LEN));
 		BluetoothGattCharacteristic gattCharacteristic = bleConnParams.getBleGattCharacteristic(bluetoothGatt, false);
 		if (gattCharacteristic == null) {
-			bleCallback.onWriteReturn(false, context.getResources().getString(R.string.err_ble_found_characteristic_fail));
+			bleCallback.onWriteReturn(false, context.getResources().getString(R.string.err_ble_found_characteristic_fail), buffer.length, 0);
 		}
 		int offset = 0;
 		writeIntervalPolicy.resetTryTimes();
@@ -101,11 +101,11 @@ public class BleConnection {
 				}
 			} while (!writeIntervalPolicy.isExecSucc() && !writeIntervalPolicy.isReachMaxFailTimes());
 			if (writeIntervalPolicy.isReachMaxFailTimes()) {
-				bleCallback.onWriteReturn(false, "write fail, has written " + offset + "/" + buffer.length);
+				bleCallback.onWriteReturn(false, "write fail, has written " + offset + "/" + buffer.length, buffer.length, offset);
 				return;
 			}
 		}
-		bleCallback.onWriteReturn(true, null);
+		bleCallback.onWriteReturn(true, null, buffer.length, buffer.length);
 	}
 
 	/**
