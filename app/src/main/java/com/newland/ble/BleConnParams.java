@@ -1,8 +1,5 @@
 package com.newland.ble;
 
-import java.util.List;
-import java.util.UUID;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -10,7 +7,10 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.util.Log;
 
-import com.newland.global.Constant;
+import com.newland.global.Constants;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Ble连接参数
@@ -19,6 +19,8 @@ import com.newland.global.Constant;
  * uuid共48位，格式如下
  * 00000000-0000-0000-8000-000000000000
  * </pre>
+ * 
+ * @author chy
  */
 public class BleConnParams {
 
@@ -86,13 +88,13 @@ public class BleConnParams {
 
 	/**
 	 * 设置待读写的服务uuid<br>
-	 * 如果不设置则采用默认的uuid{@see #com.newland.global.Constant.UUID_SERVICE}
+	 * 如果不设置则采用默认的{@link Constants#UUID_SERVICE}
 	 *
 	 * @param serviceUuid 待读写的服务uuid
 	 */
 	public void setServiceUuid(String serviceUuid) {
 		if (serviceUuid == null) {
-			this.serviceUuid = UUID.fromString(Constant.UUID_SERVICE);
+			this.serviceUuid = UUID.fromString(Constants.UUID_SERVICE);
 		} else {
 			this.serviceUuid = UUID.fromString(serviceUuid);
 		}
@@ -100,13 +102,13 @@ public class BleConnParams {
 
 	/**
 	 * 设置待读的特征uuid<br>
-	 * 如果不设置则采用默认的uuid{@see #com.newland.global.Constant.UUID_CHARACTERISTIC_READ}
+	 * 如果不设置则采用默认的{@link Constants#UUID_CHARACTERISTIC_READ}
 	 *
 	 * @param characteristicUuid 待读的特征uuid
 	 */
 	public void setCharacteristicReadUuid(String characteristicUuid) {
 		if (characteristicUuid == null) {
-			this.characteristicReadUuid = UUID.fromString(Constant.UUID_CHARACTERISTIC_READ);
+			this.characteristicReadUuid = UUID.fromString(Constants.UUID_CHARACTERISTIC_READ);
 		} else {
 			this.characteristicReadUuid = UUID.fromString(characteristicUuid);
 		}
@@ -114,13 +116,13 @@ public class BleConnParams {
 
 	/**
 	 * 设置待写的特征uuid<br>
-	 * 如果不设置则采用默认的uuid{@see #com.newland.global.Constant.UUID_CHARACTERISTIC_WRITE}
+	 * 如果不设置则采用默认的uuid{@link Constants#UUID_CHARACTERISTIC_WRITE}
 	 *
 	 * @param characteristicUuid 待写的特征uuid
 	 */
 	public void setCharacteristicWriteUuid(String characteristicUuid) {
 		if (characteristicUuid == null) {
-			this.characteristicWriteUuid = UUID.fromString(Constant.UUID_CHARACTERISTIC_WRITE);
+			this.characteristicWriteUuid = UUID.fromString(Constants.UUID_CHARACTERISTIC_WRITE);
 		} else {
 			this.characteristicWriteUuid = UUID.fromString(characteristicUuid);
 		}

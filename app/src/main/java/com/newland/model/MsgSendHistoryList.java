@@ -1,40 +1,46 @@
 package com.newland.model;
 
+import android.content.Context;
+import android.text.TextUtils;
+
+import com.newland.global.Constants;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import android.content.Context;
-
-import com.newland.global.Constant;
-
 /**
- * 发送历史记录
+ * 发送历史记录列表
  */
-public class SendHistoryModel {
-    private ArrayList<MsgSendModel> msgSendList;
+public class MsgSendHistoryList {
 
-    public SendHistoryModel(String serializeStr) {
-        msgSendList = new ArrayList<MsgSendModel>();
-        if (serializeStr != null) {
-            byte[] buffer = serializeStr.getBytes();
-            byte count = buffer[0];
-            if (count > 0) {
-                int index = 1;
-                try {
-                    for (byte i = 0; i < count; i++) {
-                        int len = buffer.length - index;
-                        if (len <= 0) {
-                            break;
-                        }
-                        MsgSendModel model = new MsgSendModel(buffer, index, len);
-                        index = index + 1 + 4 + model.getMsgLen();
-                        msgSendList.add(model);
+    private ArrayList<MsgSendHistoryModel> msgSendList;
+
+    /**
+     * @param serializeStr
+     */
+    public MsgSendHistoryList(String serializeStr) {
+        msgSendList = new ArrayList<MsgSendHistoryModel>();
+        if (TextUtils.isEmpty(serializeStr)) {
+            return;
+        }
+        byte[] buffer = serializeStr.getBytes();
+        byte count = buffer[0];
+        if (count > 0) {
+            int index = 1;
+            try {
+                for (byte i = 0; i < count; i++) {
+                    int len = buffer.length - index;
+                    if (len <= 0) {
+                        break;
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    msgSendList.clear();
+                    MsgSendHistoryModel model = new MsgSendHistoryModel(buffer, index, len);
+                    index = index + 1 + 4 + model.getMsgLen();
+                    msgSendList.add(model);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+                msgSendList.clear();
             }
         }
     }
@@ -43,24 +49,24 @@ public class SendHistoryModel {
         return msgSendList.size();
     }
 
-    public MsgSendModel get(int position) {
+    public MsgSendHistoryModel get(int position) {
         if (msgSendList == null || position >= msgSendList.size()) {
             return null;
         }
         return msgSendList.get(position);
     }
 
-    public ArrayList<MsgSendModel> getSendHistoryList() {
+    public ArrayList<MsgSendHistoryModel> getSendHistoryList() {
         return msgSendList;
     }
 
     /**
      * 添加新发送的对象(如果已经有了就不重复添加了)
      */
-    public void addSendModel(MsgSendModel model) {
+    public void addToSendHistory(MsgSendHistoryModel model) {
         int index = msgSendList.indexOf(model);
         if (index == -1) {
-            if (msgSendList.size() > Constant.MAX_SEND_HISTORY_COUNT) {
+            if (msgSendList.size() > Constants.MAX_SEND_HISTORY_COUNT) {
                 msgSendList.remove(msgSendList.size() - 1);
             }
         } else {

@@ -1,18 +1,18 @@
 package com.newland.activity;
 
-import android.Manifest;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Html;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -21,7 +21,6 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -31,29 +30,35 @@ import com.newland.ble.BleScanFilter;
 import com.newland.ble.callback.IBleCallback;
 import com.newland.ble.callback.IBleScanCallback;
 import com.newland.bletesttool.R;
-import com.newland.global.Constant;
+import com.newland.global.Constants;
+import com.newland.manager.ViewUpdateManager;
 import com.newland.model.BleCharacteristicModel;
 import com.newland.model.BleDeviceModel;
+import com.newland.model.EncodingType;
+import com.newland.model.MsgList;
+import com.newland.model.MsgLogModel;
+import com.newland.model.MsgLogModel.LogLevel;
 import com.newland.model.MsgModel;
-import com.newland.model.MsgModel.Direction;
-import com.newland.model.MsgSendModel;
-import com.newland.model.MsgSendModel.EncodingType;
-import com.newland.model.SendHistoryModel;
+import com.newland.model.MsgSendHistoryList;
+import com.newland.model.MsgSendHistoryModel;
+import com.newland.model.MsgSendRecvModel;
+import com.newland.model.MsgSendRecvModel.Direction;
+import com.newland.utils.BusinessLogicalUtils;
+import com.newland.utils.FileUtils;
 import com.newland.utils.HexConvertUtils;
-import com.newland.utils.MyPref;
-import com.newland.utils.MyUtils;
+import com.newland.utils.PrefUtils;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class MainActivity extends AppCompatActivity implements OnClickListener, CompoundButton.OnCheckedChangeListener, AdapterView.OnItemSelectedListener {
+public class MainActivity extends AppCompatActivity implements OnClickListener, CompoundButton.OnCheckedChangeListener, AdapterView.OnItemSelectedListener, ViewUpdateManager.IUpdateCallback {
 
 	/** 消息显示框滑动控件 */
-	private ScrollView msgSv;
+//	private ScrollView msgSv;
 	/** 消息显示框 */
-	private TextView msgTv;
+//	private TextView msgTv;
 	/** 显示编码单选按钮组 */
 	private RadioGroup encodingRg;
 	/** 以utf8编码显示 */
@@ -62,6 +67,8 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private RadioButton hexRb;
 	/** 是否显示时间 */
 	private CheckBox showTimeCb;
+	/** 是否显示颜色标记 */
+	private CheckBox showColorCb;
 	/** 是否自动回发 */
 	private CheckBox autoSendBackCb;
 	/** 是否自动重连 */
@@ -91,15 +98,24 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	/** 清空文本框 */
 	private Button clearTextBtn;
 	/** 接收(下行流量) */
-	private TextView rxTv;
+//	private TextView rxTv;
 	/** 传送(上行流量) */
-	private TextView txTv;
+//	private TextView txTv;
 
-	private Context context = this;
+	/** 消息文本框更新管理器 */
+	private ViewUpdateManager msgTvUpdateManager;
+	/** 接收(下行流量)文本框更新管理器 */
+	private ViewUpdateManager rxTvUpdateManager;
+	/** 传送(上行流量) */
+	private ViewUpdateManager txTvUpdateManager;
+
+	private Activity activity = this;
 	/** 以Utf8编码显示还是以Hex格式显示 */
 	private boolean isUtf8;
 	/** 是否显示接收时间 */
 	private boolean isShowTime;
+	/** 是否显示颜色标记 */
+	private boolean isShowColor;
 	/** 是否自动回发 */
 	private boolean isAutoSendBack;
 	/** 是否自动重连 */
@@ -129,11 +145,11 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	/** 预期接收(上行流量)字节数 */
 	private int txTotalBytesCount;
 	/** 数据存储 */
-	private MyPref myPref;
+	private PrefUtils myPref;
 	/** 发送的历史记录 */
-	private SendHistoryModel sendHistoryModel;
+	private MsgSendHistoryList sendHistoryList;
 	/** 消息数据 */
-	private ArrayList<MsgModel> msgList;
+	private MsgList msgList;
 	/** 扫描到的BLE设备列表 */
 	private ArrayList<BleDeviceModel> bleDeviceList;
 	/** BLE扫描器 */
@@ -145,25 +161,28 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 
         @Override
         public void onGetGattService(boolean result) {
-            int strId = result ? R.string.succ_service_found : R.string.err_service_not_found;
-            addLog(getResources().getString(strId) + " ( " + serviceUuid + " )");
+			int strId = result ? R.string.succ_service_found : R.string.err_service_not_found;
+			LogLevel logLevel = result ? LogLevel.NORMAL : LogLevel.ERROR;
+			addLog(logLevel, getResources().getString(strId) + " ( " + serviceUuid + " )");
         }
 
         @Override
         public void onGetReadCharacteristic(boolean result) {
             int strId = result ? R.string.succ_read_characteristic_found : R.string.err_read_characteristic_not_found;
-            addLog(getResources().getString(strId) + " ( " + readUuid + " )");
+			LogLevel logLevel = result ? LogLevel.NORMAL : LogLevel.ERROR;
+            addLog(logLevel, getResources().getString(strId) + " ( " + readUuid + " )");
         }
 
         @Override
         public void onGetWriteCharacteristic(boolean result) {
             int strId = result ? R.string.succ_write_characteristic_found : R.string.err_write_characteristic_not_found;
-            addLog(getResources().getString(strId) + " ( " + writeUuid + " )");
+			LogLevel logLevel = result ? LogLevel.NORMAL : LogLevel.ERROR;
+            addLog(logLevel, getResources().getString(strId) + " ( " + writeUuid + " )");
         }
 
 		@Override
 		public void onDisconnect(boolean isManual) {
-			addLog(getResources().getString(isManual ? R.string.active : R.string.passive) + getResources().getString(R.string.disconnect));
+			addLog(LogLevel.NORMAL, getResources().getString(isManual ? R.string.active : R.string.passive) + getResources().getString(R.string.disconnect));
 			runOnUiThread(new Runnable() {
 
 				@Override
@@ -178,50 +197,51 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 
 		@Override
 		public void onRead(byte[] value) {
-			MsgSendModel model = new MsgSendModel(isUtf8 ? EncodingType.UTF8 : EncodingType.HEX, value);
-			addText(model, Direction.RECEIVED);
+			EncodingType encodingType = isUtf8 ? EncodingType.UTF8 : EncodingType.HEX;
+			MsgModel msgModel = new MsgSendRecvModel(activity, Direction.RECEIVED, encodingType, value);
+			addText(msgModel);
 			rxBytesCount += value.length;
-			resetRx();
+			rxTvUpdateManager.update();
 			if (isAutoSendBack) {
-				sendMsg(model);
+				sendMsg(encodingType, value);
 			}
 		}
 
 		@Override
 		public void onWriteReturn(boolean result, String errMsg, int preparedSendBytesCount, int sendSuccBytesCount) {
 			if (result) {
-				addLog(R.string.send_succ);
+				addLog(LogLevel.NORMAL, R.string.send_succ);
 			} else {
 				if (errMsg == null) {
-					addLog(R.string.send_fail);
+					addLog(LogLevel.ERROR, R.string.send_fail);
 				} else {
-					addLog(getResources().getString(R.string.send_fail) + " : " + errMsg);
+					addLog(LogLevel.ERROR, getResources().getString(R.string.send_fail) + " : " + errMsg);
 				}
 			}
 			txTotalBytesCount += preparedSendBytesCount;
 			txBytesCount += sendSuccBytesCount;
-			resetTx();
+			txTvUpdateManager.update();
 		}
 
 		@Override
 		public void onReconnectStart() {
-			addLog(R.string.reconnect_start);
+			addLog(LogLevel.NORMAL, R.string.reconnect_start);
 		}
 
 		@Override
 		public void onReconnecting() {
-			addLog(R.string.reconnecting);
+			addLog(LogLevel.NORMAL, R.string.reconnecting);
 		}
 
 		@Override
 		public void onReconnectEnd() {
-			addLog(R.string.reconnect_stop);
+			addLog(LogLevel.NORMAL, R.string.reconnect_stop);
 		}
 
 		@Override
 		public void onReconnectStateChange(boolean isConnected, String errMsg) {
 			if (isConnected) {
-				addLog(R.string.reconnect_succ);
+				addLog(LogLevel.NORMAL, R.string.reconnect_succ);
 				runOnUiThread(new Runnable() {
 
 					@Override
@@ -231,16 +251,16 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 				});
 			} else {
 				if (errMsg == null) {
-					addLog(R.string.reconnect_fail);
+					addLog(LogLevel.ERROR, R.string.reconnect_fail);
 				} else {
-					addLog(getResources().getString(R.string.reconnect_fail) + " : " + errMsg);
+					addLog(LogLevel.ERROR, getResources().getString(R.string.reconnect_fail) + " : " + errMsg);
 				}
 			}
 		}
 
 		@Override
 		public void log(String log) {
-			addLog(log);
+			addLog(LogLevel.NORMAL, log);
 		}
 
 	};
@@ -248,6 +268,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setContentView(R.layout.activity_main);
 		findView();
 		setListener();
@@ -256,12 +277,13 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	}
 
 	private void findView() {
-		msgSv = (ScrollView) findViewById(R.id.msg_sv);
-		msgTv = (TextView) findViewById(R.id.msg_tv);
+//		msgSv = (ScrollView) findViewById(R.id.msg_sv);
+//		msgTv = (TextView) findViewById(R.id.msg_tv);
 		encodingRg = (RadioGroup) findViewById(R.id.encoding_rg);
 		utf8Rb = (RadioButton) findViewById(R.id.utf8_rb);
 		hexRb = (RadioButton) findViewById(R.id.hex_rb);
 		showTimeCb = (CheckBox) findViewById(R.id.show_time_cb);
+		showColorCb = (CheckBox) findViewById(R.id.show_color_cb);
 		autoSendBackCb = (CheckBox) findViewById(R.id.send_back_cb);
 		autoReconnectCb = (CheckBox) findViewById(R.id.auto_reconnect_cb);
 		reconnectIntervalSpinner = (Spinner) findViewById(R.id.reconnect_interval_spinner);
@@ -276,8 +298,8 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		stopScanBtn = (Button) findViewById(R.id.stop_scan_btn);
 		deleteDeviceBtn = (Button) findViewById(R.id.delete_device_btn);
 		clearTextBtn = (Button) findViewById(R.id.clear_text_btn);
-		rxTv = (TextView) findViewById(R.id.rx_tv);
-		txTv = (TextView) findViewById(R.id.tx_tv);
+//		rxTv = (TextView) findViewById(R.id.rx_tv);
+//		txTv = (TextView) findViewById(R.id.tx_tv);
 	}
 
 	/**
@@ -296,10 +318,11 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 						isUtf8 = false;
 						break;
 				}
-				myPref.putBoolean(Constant.SP_KEY_IS_UTF8, isUtf8);
+				myPref.putBoolean(Constants.SP_KEY_IS_UTF8, isUtf8);
 			}
 		});
 		showTimeCb.setOnCheckedChangeListener(this);
+		showColorCb.setOnCheckedChangeListener(this);
 		autoSendBackCb.setOnCheckedChangeListener(this);
 		autoReconnectCb.setOnCheckedChangeListener(this);
 		neverSelectUuidWhenConnectCb.setOnCheckedChangeListener(this);
@@ -320,13 +343,13 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		String key = null;
 		switch(adapterView.getId()) {
 			case R.id.reconnect_interval_spinner:
-				key = Constant.SP_KEY_RECONN_INTERVAL_SELECTION;
-				reconnectInterval = MyUtils.getSpinnerIntValue(reconnectIntervalSpinner, position) * 1000;
+				key = Constants.SP_KEY_RECONN_INTERVAL_SELECTION;
+				reconnectInterval = BusinessLogicalUtils.getSpinnerIntValue(reconnectIntervalSpinner, position) * 1000;
 				bleConnector.setAutoReconnect(isAutoReconnect, reconnectInterval);
 				break;
 			case R.id.scan_timeout_spinner:
-				key = Constant.SP_KEY_SCAN_TIMEOUT_SELECTION;
-				scanTimeout = MyUtils.getSpinnerIntValue(scanTimeoutSpinner, position) * 1000;
+				key = Constants.SP_KEY_SCAN_TIMEOUT_SELECTION;
+				scanTimeout = BusinessLogicalUtils.getSpinnerIntValue(scanTimeoutSpinner, position) * 1000;
 				break;
 		}
 		if(key != null) {
@@ -344,22 +367,27 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		switch (paramCompoundButton.getId()) {
 			case R.id.show_time_cb:
 				isShowTime = paramBoolean;
-				key = Constant.SP_KEY_IS_SHOW_TIME;
-				resetText();
+				key = Constants.SP_KEY_IS_SHOW_TIME;
+				msgTvUpdateManager.update();
+				break;
+			case R.id.show_color_cb:
+				isShowColor = paramBoolean;
+				key = Constants.SP_KEY_IS_SHOW_COLOR;
+				msgTvUpdateManager.update();
 				break;
 			case R.id.send_back_cb:
 				isAutoSendBack = paramBoolean;
-				key = Constant.SP_KEY_IS_AUTO_SEND_BACK;
+				key = Constants.SP_KEY_IS_AUTO_SEND_BACK;
 				break;
 			case R.id.auto_reconnect_cb:
 				isAutoReconnect = paramBoolean;
-				key = Constant.SP_KEY_IS_AUTO_RECONN;
+				key = Constants.SP_KEY_IS_AUTO_RECONN;
 				bleConnector.setAutoReconnect(isAutoReconnect, reconnectInterval);
 				break;
 			case R.id.never_select_uuid_cb:
 				isDetectUuidWhenConnect = !paramBoolean;
 				//由于这个是相反的因此不能进入常规设置项
-				myPref.putBoolean(Constant.SP_KEY_IS_DETECT_UUID_WHEN_CONNECT, isDetectUuidWhenConnect);
+				myPref.putBoolean(Constants.SP_KEY_IS_DETECT_UUID_WHEN_CONNECT, isDetectUuidWhenConnect);
 				bleConnector.setIsDetectUuidWhenConnect(isDetectUuidWhenConnect);
 				return;
 		}
@@ -393,7 +421,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 				stopScan();
 				break;
 			case R.id.delete_device_btn:
-				addLog(R.string.delete_device);
+				addLog(LogLevel.NORMAL, R.string.delete_device);
 				deleteDevice();
 				break;
 			case R.id.clear_text_btn:
@@ -406,35 +434,56 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	 * 初始化数据
 	 */
 	private void initData() {
-		myPref = MyPref.getInstance(context);
-		isUtf8 = myPref.getBoolean(Constant.SP_KEY_IS_UTF8);
-		isAutoSendBack = myPref.getBoolean(Constant.SP_KEY_IS_AUTO_SEND_BACK);
-		isAutoReconnect = myPref.getBoolean(Constant.SP_KEY_IS_AUTO_RECONN);
-		reconnectIntervalSelection = myPref.getInt(Constant.SP_KEY_RECONN_INTERVAL_SELECTION);
-		reconnectInterval = MyUtils.getSpinnerIntValue(reconnectIntervalSpinner, reconnectIntervalSelection) * 1000;
-		scanTimeoutSelection = myPref.getInt(Constant.SP_KEY_SCAN_TIMEOUT_SELECTION);
-		scanTimeout = MyUtils.getSpinnerIntValue(scanTimeoutSpinner, scanTimeoutSelection) * 1000;
-		isShowTime = myPref.getBoolean(Constant.SP_KEY_IS_SHOW_TIME);
-		isSendUtf8 = myPref.getBoolean(Constant.SP_KEY_IS_SEND_UTF8);
-		serviceUuid = myPref.getString(Constant.SP_KEY_UUID_SERVICE);
+		myPref = PrefUtils.getInstance(activity);
+		isUtf8 = myPref.getBoolean(Constants.SP_KEY_IS_UTF8);
+		isAutoSendBack = myPref.getBoolean(Constants.SP_KEY_IS_AUTO_SEND_BACK, true);
+		isAutoReconnect = myPref.getBoolean(Constants.SP_KEY_IS_AUTO_RECONN);
+		reconnectIntervalSelection = myPref.getInt(Constants.SP_KEY_RECONN_INTERVAL_SELECTION);
+		reconnectInterval = BusinessLogicalUtils.getSpinnerIntValue(reconnectIntervalSpinner, reconnectIntervalSelection) * 1000;
+		scanTimeoutSelection = myPref.getInt(Constants.SP_KEY_SCAN_TIMEOUT_SELECTION);
+		scanTimeout = BusinessLogicalUtils.getSpinnerIntValue(scanTimeoutSpinner, scanTimeoutSelection) * 1000;
+		isShowTime = myPref.getBoolean(Constants.SP_KEY_IS_SHOW_TIME);
+		isShowColor = myPref.getBoolean(Constants.SP_KEY_IS_SHOW_COLOR);
+		isSendUtf8 = myPref.getBoolean(Constants.SP_KEY_IS_SEND_UTF8);
+		serviceUuid = myPref.getString(Constants.SP_KEY_UUID_SERVICE);
 		if (serviceUuid == null) {
-			serviceUuid = Constant.UUID_SERVICE;
+			serviceUuid = Constants.UUID_SERVICE;
 		}
-		readUuid = myPref.getString(Constant.SP_KEY_UUID_READ);
+		readUuid = myPref.getString(Constants.SP_KEY_UUID_READ);
 		if (readUuid == null) {
-			readUuid = Constant.UUID_CHARACTERISTIC_READ;
+			readUuid = Constants.UUID_CHARACTERISTIC_READ;
 		}
-		writeUuid = myPref.getString(Constant.SP_KEY_UUID_WRITE);
+		writeUuid = myPref.getString(Constants.SP_KEY_UUID_WRITE);
 		if (writeUuid == null) {
-			writeUuid = Constant.UUID_CHARACTERISTIC_WRITE;
+			writeUuid = Constants.UUID_CHARACTERISTIC_WRITE;
 		}
-		isDetectUuidWhenConnect = myPref.getBoolean(Constant.SP_KEY_IS_DETECT_UUID_WHEN_CONNECT);
-		String sendHistoryStr = myPref.getString(Constant.SP_KEY_SEND_HISTORY);
-		sendHistoryModel = new SendHistoryModel(sendHistoryStr);
-		msgList = new ArrayList<MsgModel>();
+		isDetectUuidWhenConnect = myPref.getBoolean(Constants.SP_KEY_IS_DETECT_UUID_WHEN_CONNECT);
+		String sendHistoryStr = myPref.getString(Constants.SP_KEY_SEND_HISTORY);
+		sendHistoryList = new MsgSendHistoryList(sendHistoryStr);
+		msgList = new MsgList();
 		bleDeviceList = new ArrayList<BleDeviceModel>();
-		bleScanFilter = new BleScanFilter(context, null);
-		bleConnector = new BleConnector(context, bleCallback, isAutoReconnect, reconnectInterval);
+		bleScanFilter = new BleScanFilter(activity, null);
+		bleConnector = new BleConnector(activity, bleCallback, isAutoReconnect, reconnectInterval);
+
+		msgTvUpdateManager = new ViewUpdateManager(activity, R.id.msg_tv, this);
+		rxTvUpdateManager = new ViewUpdateManager(activity, R.id.rx_tv, this);
+		txTvUpdateManager = new ViewUpdateManager(activity, R.id.tx_tv, this);
+	}
+
+	@Override
+	public void updateView(View view) {
+		TextView textView = (TextView) view;
+		switch (view.getId()) {
+			case R.id.msg_tv:
+				resetText(textView);
+				break;
+			case R.id.rx_tv:
+				resetRx(textView);
+				break;
+			case R.id.tx_tv:
+				resetTx(textView);
+				break;
+		}
 	}
 
 	/**
@@ -443,11 +492,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private void setData() {
 		utf8Rb.setChecked(isUtf8);
 		hexRb.setChecked(!isUtf8);
+		showTimeCb.setChecked(isShowTime);
+		showColorCb.setChecked(isShowColor);
 		autoSendBackCb.setChecked(isAutoSendBack);
 		autoReconnectCb.setChecked(isAutoReconnect);
 		reconnectIntervalSpinner.setSelection(reconnectIntervalSelection);
 		scanTimeoutSpinner.setSelection(scanTimeoutSelection);
-		showTimeCb.setChecked(isShowTime);
 		neverSelectUuidWhenConnectCb.setChecked(!isDetectUuidWhenConnect);
 		deleteDevice();
 		clearText();
@@ -456,7 +506,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	@Override
 	protected void onStop() {
 		try {
-			myPref.putString(Constant.SP_KEY_SEND_HISTORY, sendHistoryModel.toSerializeStr());
+			myPref.putString(Constants.SP_KEY_SEND_HISTORY, sendHistoryList.toSerializeStr());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -517,34 +567,33 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 					sendMsgEt.setHint(R.string.hint_hex);
 					break;
 				}
-				myPref.putBoolean(Constant.SP_KEY_IS_SEND_UTF8, isSendUtf8);
+				myPref.putBoolean(Constants.SP_KEY_IS_SEND_UTF8, isSendUtf8);
 			}
 		});
-		new AlertDialog.Builder(context).setTitle(R.string.send_setting).setView(view).setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+		new AlertDialog.Builder(activity).setTitle(R.string.send_setting).setView(view).setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
 
 			@Override
 			public void onClick(DialogInterface paramDialogInterface, int which) {
 				String msg = sendMsgEt.getText().toString();
-				byte[] buffer = null;
+				byte[] value = null;
 				if (isSendUtf8) {
 					try {
-						buffer = msg.trim().getBytes(Constant.CHARSET_NAME);
+						value = msg.trim().getBytes(Constants.CHARSET_NAME);
 					} catch (UnsupportedEncodingException e) {
 						e.printStackTrace();
-						addLog(e.getMessage());
+						addLog(LogLevel.ERROR, e.getMessage());
 					}
 				} else {
 					try {
-						buffer = HexConvertUtils.hexStrToByteArr(context, msg);
+						value = HexConvertUtils.hexStrToByteArr(activity, msg);
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
-						addLog(e.getMessage());
+						addLog(LogLevel.ERROR, e.getMessage());
 					}
 				}
-				if (buffer != null) {
-					MsgSendModel model = new MsgSendModel(isSendUtf8 ? EncodingType.UTF8 : EncodingType.HEX, buffer);
-					sendHistoryModel.addSendModel(model);
-					sendMsg(model);
+				if (value != null) {
+					EncodingType encodingType = isSendUtf8 ? EncodingType.UTF8 : EncodingType.HEX;
+					sendMsg(encodingType, value);
 				}
 			}
 		}).setNegativeButton(R.string.cancel, null).show();
@@ -563,24 +612,25 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		serviceUuidEt.setText(serviceUuid);
 		readUuidEt.setText(readUuid);
 		writeUuidEt.setText(writeUuid);
-		new AlertDialog.Builder(context).setTitle(R.string.setting_uuid).setView(view).setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+		new AlertDialog.Builder(activity).setTitle(R.string.setting_uuid).setView(view).setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
 
 			@Override
 			public void onClick(DialogInterface paramDialogInterface, int which) {
 				String tmpServiceUuid = serviceUuidEt.getText().toString();
 				String tmpReadUuid = readUuidEt.getText().toString();
 				String tmpWriteUuid = writeUuidEt.getText().toString();
+				LogLevel logLevel = LogLevel.ERROR;
 				String log = "";
-				if (!MyUtils.verifyUuid(tmpServiceUuid)) {
+				if (!BusinessLogicalUtils.verifyUuid(tmpServiceUuid)) {
 					log = getResources().getString(R.string.err_uuid_format_service);
 				}
-				if (!MyUtils.verifyUuid(tmpReadUuid)) {
+				if (!BusinessLogicalUtils.verifyUuid(tmpReadUuid)) {
 					if (!TextUtils.isEmpty(log)) {
 						log += "\n";
 					}
 					log += getResources().getString(R.string.err_uuid_format_read);
 				}
-				if (!MyUtils.verifyUuid(tmpWriteUuid)) {
+				if (!BusinessLogicalUtils.verifyUuid(tmpWriteUuid)) {
 					if (!TextUtils.isEmpty(log)) {
 						log += "\n";
 					}
@@ -593,9 +643,10 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 					setServiceUuid(serviceUuid);
 					setReadUuid(readUuid);
 					setWriteUuid(writeUuid);
+					logLevel = LogLevel.NORMAL;
 					log = getResources().getString(R.string.set_succ);
 				}
-				addLog(log);
+				addLog(logLevel, log);
 			}
 		}).setNegativeButton(R.string.cancel, null).show();
 	}
@@ -605,7 +656,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	 */
 	private void setServiceUuid(String uuid) {
 		serviceUuid = uuid;
-		myPref.putString(Constant.SP_KEY_UUID_SERVICE, serviceUuid);
+		myPref.putString(Constants.SP_KEY_UUID_SERVICE, serviceUuid);
 		bleConnector.setServiceUuid(uuid);
 	}
 
@@ -614,7 +665,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	 */
 	private void setReadUuid(String uuid) {
 		readUuid = uuid;
-		myPref.putString(Constant.SP_KEY_UUID_READ, readUuid);
+		myPref.putString(Constants.SP_KEY_UUID_READ, readUuid);
 		bleConnector.setCharacteristicReadUuid(uuid);
 	}
 
@@ -623,7 +674,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	 */
 	private void setWriteUuid(String uuid) {
 		writeUuid = uuid;
-		myPref.putString(Constant.SP_KEY_UUID_WRITE, writeUuid);
+		myPref.putString(Constants.SP_KEY_UUID_WRITE, writeUuid);
 		bleConnector.setCharacteristicWriteUuid(uuid);
 	}
 
@@ -633,12 +684,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private void showAboutDialog() {
 		String aboutContent;
 		try {
-			aboutContent = MyUtils.getAssetsFileText(context, Constant.FILE_NAME_ABOUT);
+			aboutContent = FileUtils.getAssetsFileText(activity, Constants.FILE_NAME_ABOUT);
 		} catch (IOException e) {
 			e.printStackTrace();
 			aboutContent = getResources().getString(R.string.err_get_about);
 		}
-		new AlertDialog.Builder(context).setTitle(R.string.about).setMessage(aboutContent).setPositiveButton(R.string.ok, null).show();
+		new AlertDialog.Builder(activity).setTitle(R.string.about).setMessage(aboutContent).setPositiveButton(R.string.ok, null).show();
 	}
 
 	/**
@@ -650,28 +701,29 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 
 			@Override
 			public void onBluetoothNotOpen() {
-				addLog(R.string.err_bluetooth_is_not_enabled);
+				addLog(LogLevel.ERROR, R.string.err_bluetooth_is_not_enabled);
 			}
 
 			@Override
 			public void onScanStarted() {
 				setBleBtnEnabled(false, true, false, false);
 				bleDeviceList.clear();
-				addLog(R.string.scan_device_start);
+				addLog(LogLevel.NORMAL, R.string.scan_device_start);
 			}
 
 			@Override
 			public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
-				BleDeviceModel model = new BleDeviceModel(context, device, rssi);
+				BleDeviceModel model = new BleDeviceModel(activity, device, rssi);
 				if (!bleDeviceList.contains(model)) {
 					bleDeviceList.add(model);
-					addLog(model.toSingleLineString());
+					boolean isSingleLine = true;
+					addLog(LogLevel.NORMAL, model.toString(isSingleLine));
 				}
 			}
 
 			@Override
 			public void onScanFinished() {
-				addLog(R.string.scan_device_stop);
+				addLog(LogLevel.NORMAL, R.string.scan_device_stop);
 				showBleScanList();
 				setBleBtnEnabled(true, true, false, false);
 			}
@@ -691,21 +743,23 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private void showBleScanList() {
 		Collections.sort(bleDeviceList);
 		final String[] bleDeviceArray = new String[bleDeviceList.size()];
+		boolean isSingleLine = false;
 		for (int i = 0; i < bleDeviceList.size(); i++) {
-			bleDeviceArray[i] = bleDeviceList.get(i).toMultiLineString();
+			bleDeviceArray[i] = bleDeviceList.get(i).toString(isSingleLine);
 		}
 		runOnUiThread(new Runnable() {
 
 			@Override
 			public void run() {
-				new AlertDialog.Builder(context).setTitle(R.string.scan_result).setItems(bleDeviceArray, new DialogInterface.OnClickListener() {
+				new AlertDialog.Builder(activity).setTitle(R.string.scan_result).setItems(bleDeviceArray, new DialogInterface.OnClickListener() {
 
 					@Override
 					public void onClick(DialogInterface dialog, int position) {
 						final BleDeviceModel device = bleDeviceList.get(position);
-						final String deviceStr = device.toSingleLineString();
-						addLog(getResources().getString(R.string.select) + " : " + deviceStr);
-						addLog(R.string.try_connecting);
+						boolean isSingleLine = true;
+						final String deviceStr = device.toString(isSingleLine);
+						addLog(LogLevel.NORMAL, getResources().getString(R.string.select) + " : " + deviceStr);
+						addLog(LogLevel.NORMAL, R.string.try_connecting);
 						new Thread(new Runnable() {
 
 							@Override
@@ -749,7 +803,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		try {
 			bleConnector.connect(false);
 			// 连接成功
-			addLog(getResources().getString(R.string.connect_succ) + " : " + deviceStr);
+			addLog(LogLevel.NORMAL, getResources().getString(R.string.connect_succ) + " : " + deviceStr);
 			setBleBtnEnabled(false, false, true, true);
 			if(isDetectUuidWhenConnect) {
 				runOnUiThread(new Runnable() {
@@ -763,7 +817,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			addLog(e.getMessage());
+			addLog(LogLevel.ERROR, e.getMessage());
 		}
 	}
 
@@ -773,13 +827,13 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private void showBleServicesDialog() {
 		final String[] serviceUuids = bleConnector.getServiceUuids();
 		if(serviceUuids == null) {
-			addLog(R.string.err_service_not_found_any);
+			addLog(LogLevel.ERROR, R.string.err_service_not_found_any);
 		} else {
-			new AlertDialog.Builder(context).setTitle(R.string.select_service).setItems(serviceUuids, new DialogInterface.OnClickListener() {
+			new AlertDialog.Builder(activity).setTitle(R.string.select_service).setItems(serviceUuids, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface dialogInterface, int i) {
 					setServiceUuid(serviceUuids[i]);
-//					addLog(context.getResources().getString(R.string.select) + context.getResources().getString(R.string.service_uuid) + " : " + serviceUuids[i]);
+//					addLog(activity.getResources().getString(R.string.select) + activity.getResources().getString(R.string.service_uuid) + " : " + serviceUuids[i]);
 					showBleCharacteristicsDialog();
 				}
 			}).setCancelable(false).show();
@@ -792,30 +846,30 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private void showBleCharacteristicsDialog() {
 		BleCharacteristicModel[] characteristics = bleConnector.getCharacteristics();
 		if(characteristics == null) {
-			addLog(R.string.err_characteristic_not_found_any);
+			addLog(LogLevel.ERROR, R.string.err_characteristic_not_found_any);
 		} else {
-			LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+			LayoutInflater inflater = (LayoutInflater) activity.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 			View view = inflater.inflate(R.layout.dialog_setting_characteristics, null);
 			ListView characteristicLv = (ListView) view.findViewById(R.id.characteristic_lv);
-			final BleCharacteristicAdapter adapter = new BleCharacteristicAdapter(context, characteristics);
+			final BleCharacteristicAdapter adapter = new BleCharacteristicAdapter(activity, characteristics);
 			characteristicLv.setAdapter(adapter);
 			String title = getResources().getString(R.string.select_read_write_characteristic) + "\n(" + getResources().getString(R.string.service_uuid) + ":" + serviceUuid + ")";
-			new AlertDialog.Builder(context).setTitle(title).setView(view).setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+			new AlertDialog.Builder(activity).setTitle(title).setView(view).setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface dialogInterface, int i) {
 					String readUuid = adapter.getReadUuid();
 					String writeUuid = adapter.getWriteUuid();
 					if(readUuid != null) {
 						setReadUuid(readUuid);
-//						addLog(context.getResources().getString(R.string.select) + context.getResources().getString(R.string.read_uuid) + " : " + readUuid);
+//						addLog(activity.getResources().getString(R.string.select) + activity.getResources().getString(R.string.read_uuid) + " : " + readUuid);
 					} else {
-						addLog(R.string.read_characteristic_not_select);
+						addLog(LogLevel.NORMAL, R.string.read_characteristic_not_select);
 					}
 					if(writeUuid != null) {
 						setWriteUuid(writeUuid);
-//						addLog(context.getResources().getString(R.string.select) + context.getResources().getString(R.string.write_uuid) + " : " + writeUuid);
+//						addLog(activity.getResources().getString(R.string.select) + activity.getResources().getString(R.string.write_uuid) + " : " + writeUuid);
 					} else {
-						addLog(R.string.write_characteristic_not_select);
+						addLog(LogLevel.NORMAL, R.string.write_characteristic_not_select);
 					}
 				}
 			}).setCancelable(false).show();
@@ -823,47 +877,20 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	}
 
 	/**
-	 * 发送消息
-	 */
-	private void sendMsg(final MsgSendModel model) {
-		if (model == null) {
-			return;
-		}
-		if(!bleConnector.isConnectedAndInitSucc()) {
-			addLog(R.string.err_ble_connect_nothing);
-			return;
-		}
-		new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				try {
-					bleConnector.write(model.getMsg());
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-
-		}).start();
-		sendHistoryModel.addSendModel(model);
-		addText(model, Direction.SEND);
-	}
-
-	/**
 	 * 显示"发送历史记录"对话框,让用户中选择相应选项重新发送
 	 */
 	private void showSendHistoryDialog() {
-		String[] sendHistoryArray = sendHistoryModel.toStrArray(context);
+		String[] sendHistoryArray = sendHistoryList.toStrArray(activity);
 		if (sendHistoryArray == null) {
-			addLog(R.string.err_send_history_is_empty);
+			addLog(LogLevel.ERROR, R.string.err_send_history_is_empty);
 		} else {
 			// 这里有必要复制出一套副本,因为历史记录随时可能改变
-			final ArrayList<MsgSendModel> sendHistoryList = (ArrayList<MsgSendModel>) sendHistoryModel.getSendHistoryList().clone();
-			new AlertDialog.Builder(context).setTitle(R.string.send_history).setItems(sendHistoryArray, new DialogInterface.OnClickListener() {
+			final ArrayList<MsgSendHistoryModel> sendHistoryList = (ArrayList<MsgSendHistoryModel>) this.sendHistoryList.getSendHistoryList().clone();
+			new AlertDialog.Builder(activity).setTitle(R.string.send_history).setItems(sendHistoryArray, new DialogInterface.OnClickListener() {
 
 				@Override
 				public void onClick(DialogInterface paramDialogInterface, int position) {
-					MsgSendModel model = sendHistoryList.get(position);
+					MsgSendHistoryModel model = sendHistoryList.get(position);
 					sendMsg(model);
 				}
 			}).show();
@@ -871,75 +898,92 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	}
 
 	/**
-	 * 将"新的消息"添加到文本框中
+	 * 发送消息
 	 */
-	private void addText(MsgModel model) {
-		synchronized (msgList) {
-			msgList.add(model);
+	private void sendMsg(EncodingType encodingType, byte[] value) {
+		MsgSendHistoryModel model = new MsgSendHistoryModel(encodingType, value);
+		sendMsg(model);
+	}
+
+	/**
+	 * 发送消息
+	 */
+	private void sendMsg(MsgSendHistoryModel model) {
+		final byte[] value = model.getMsg();
+		if (value == null || value.length == 0) {
+			return;
 		}
-		final String str = model.toString(context, isShowTime);
-		runOnUiThread(new Runnable() {
+		if(!bleConnector.isConnectedAndInitSucc()) {
+			addLog(LogLevel.ERROR, R.string.err_ble_connect_nothing);
+			return;
+		}
+		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
-				msgTv.setText(msgTv.getText().toString() + str + "\n");
-				msgSv.fullScroll(ScrollView.FOCUS_DOWN);
+				try {
+					bleConnector.write(value);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
-		});
+
+		}).start();
+		sendHistoryList.addToSendHistory(model);
+		addText(model);
 	}
 
 	/**
 	 * 将"新的消息"添加到文本框中, 并记录该消息
 	 */
-	private void addText(MsgSendModel model, Direction direction) {
-		MsgModel msgModel = new MsgModel(model, direction);
+	private void addText(MsgSendHistoryModel model) {
+		MsgSendRecvModel msgModel = new MsgSendRecvModel(activity, model);
 		addText(msgModel);
 	}
 
 	/**
 	 * 将"日志信息"添加到文本框中
 	 */
-	private void addLog(int logStrId) {
-		addLog(getResources().getString(logStrId));
+	private void addLog(LogLevel logLevel, int logStrId) {
+		addLog(logLevel, getResources().getString(logStrId));
 	}
 
 	/**
 	 * 将"日志信息"添加到文本框中
 	 */
-	private void addLog(String log) {
-		MsgModel model = new MsgModel(log);
+	private void addLog(LogLevel logLevel, String log) {
+		MsgLogModel model = new MsgLogModel(logLevel, log);
 		addText(model);
+	}
+
+	/**
+	 * 将"新的消息"添加到文本框中
+	 */
+	private void addText(MsgModel model) {
+		msgList.add(model);
+		msgTvUpdateManager.update();
 	}
 
 	/**
 	 * 由于是否显示时间这一项变了，所以要重新设置文本框文本
 	 */
-	private void resetText() {
-		final StringBuilder sb = new StringBuilder();
-		synchronized (msgList) {
-			for (int i = 0; i < msgList.size(); i++) {
-				MsgModel model = msgList.get(i);
-				String str = model.toString(context, isShowTime);
-				sb.append(str + "\n");
-			}
+	private void resetText(final TextView view) {
+		final String str = msgList.toString(activity, isShowTime, isShowColor);
+		if(isShowColor) {
+			view.setText(Html.fromHtml(str));
+		} else {
+			view.setText(str);
 		}
-		runOnUiThread(new Runnable() {
-
-			@Override
-			public void run() {
-				msgTv.setText(sb.toString());
-			}
-		});
 	}
 
 	/**
 	 * 设置接收数据统计值
 	 */
-	private void resetRx() {
+	private void resetRx(final TextView view) {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				rxTv.setText(String.format(getResources().getString(R.string.rx_description), rxBytesCount));
+				view.setText(String.format(getResources().getString(R.string.rx_description), rxBytesCount));
 			}
 		});
 	}
@@ -947,11 +991,11 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	/**
 	 * 设置发送数据统计值
 	 */
-	private void resetTx() {
+	private void resetTx(final TextView view) {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				txTv.setText(String.format(getResources().getString(R.string.tx_description), txBytesCount, txTotalBytesCount - txBytesCount, txTotalBytesCount));
+				view.setText(String.format(getResources().getString(R.string.tx_description), txBytesCount, txTotalBytesCount - txBytesCount, txTotalBytesCount));
 			}
 		});
 	}
@@ -960,14 +1004,13 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	 * 清空文本框
 	 */
 	private void clearText() {
-		synchronized (msgList) {
-			msgList.clear();
-		}
-		msgTv.setText("");
+		msgList.clear();
 		rxBytesCount = 0;
 		txBytesCount = 0;
 		txTotalBytesCount = 0;
-		resetRx();
-		resetTx();
+		msgTvUpdateManager.update();
+		rxTvUpdateManager.update();
+		txTvUpdateManager.update();
 	}
+
 }

@@ -19,45 +19,55 @@ public class BleDeviceModel implements Comparable<BleDeviceModel> {
 	/** 发射信号强度 */
 	private int rssi;
 
-	public BleDeviceModel(Context context, BluetoothDevice device, int rssi) {
-		name = device.getName();
-		if (TextUtils.isEmpty(name)) {
-			name = context.getResources().getString(R.string.unknown);
-		}
-		address = device.getAddress();
-		this.rssi = rssi;
-	}
+    public BleDeviceModel(Context context, BluetoothDevice device, int rssi) {
+        name = device.getName();
+        if (TextUtils.isEmpty(name)) {
+            name = context.getResources().getString(R.string.unknown);
+        }
+        address = device.getAddress();
+        this.rssi = rssi;
+    }
 
-	public String getName() {
-		return name;
-	}
+    public String getName() {
+        return name;
+    }
 
-	public String getAddress() {
-		return address;
-	}
+    public String getAddress() {
+        return address;
+    }
 
-	public int getRssi() {
-		return rssi;
-	}
+    public int getRssi() {
+        return rssi;
+    }
 
-	public String toSingleLineString() {
-		return "(" + rssi + ") " + name + "   " + address;
-	}
+    /**
+     * 格式为：( 信号强度rssi ) 设备名name 设备MAC地址
+     */
+    public String toString(boolean isSingleLine) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("(");
+        sb.append(rssi);
+        sb.append(") ");
+        sb.append(name);
+        if (isSingleLine) {
+            sb.append(" ");
+        } else {
+            sb.append("\n");
+        }
+        sb.append(address);
+        return sb.toString();
+    }
 
-	public String toMultiLineString() {
-		return "(" + rssi + ") " + name + "\n" + address;
-	}
+    @Override
+    public int compareTo(@NonNull BleDeviceModel another) {
+        return another.getRssi() - rssi;
+    }
 
-	@Override
-	public int compareTo(@NonNull BleDeviceModel another) {
-		return another.getRssi() - rssi;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if(obj instanceof BleDeviceModel) {
-			return address.equals(((BleDeviceModel) obj).address);
-		}
-		return false;
-	}
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof BleDeviceModel) {
+            return address.equals(((BleDeviceModel) obj).address);
+        }
+        return false;
+    }
 }

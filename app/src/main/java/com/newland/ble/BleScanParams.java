@@ -5,6 +5,8 @@ import java.util.UUID;
 
 /**
  * Ble扫描参数
+ * 
+ * @author chy
  */
 public class BleScanParams {
 	/** 默认扫描超时时间 */

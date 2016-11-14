@@ -7,20 +7,20 @@ import android.preference.PreferenceManager;
 /**
  * 保存配置
  */
-public class MyPref {
+public class PrefUtils {
 
-    private static MyPref instance;
+    private static PrefUtils instance;
     private SharedPreferences sp;
 
-    private MyPref(Context context) {
+    private PrefUtils(Context context) {
         if (sp == null) {
             sp = PreferenceManager.getDefaultSharedPreferences(context);
         }
     }
 
-    public static MyPref getInstance(Context context) {
+    public static PrefUtils getInstance(Context context) {
         if (instance == null) {
-            instance = new MyPref(context);
+            instance = new PrefUtils(context);
         }
         return instance;
     }
@@ -33,6 +33,10 @@ public class MyPref {
 
     public boolean getBoolean(String key) {
         return sp.getBoolean(key, false);
+    }
+
+    public boolean getBoolean(String key, boolean defValue) {
+        return sp.getBoolean(key, defValue);
     }
 
     public boolean putInt(String key, int value) {

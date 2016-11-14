@@ -22,7 +22,7 @@ public class BleCharacteristicModel {
     /**
      * 根据属性掩码判断并添加相应属性
      */
-    private boolean addPropertiesStr(StringBuffer sb, int propertyMask, String propertiesStr) {
+    private boolean addPropertiesStr(StringBuilder sb, int propertyMask, String propertiesStr) {
         if((properties & propertyMask) != 0) {
             sb.append("\"");
             sb.append(propertiesStr);
@@ -35,8 +35,8 @@ public class BleCharacteristicModel {
     /**
      * 获取特性的描述信息
      */
-    private StringBuffer getPropertiesDescription(Context context) {
-        StringBuffer sb = new StringBuffer();
+    private StringBuilder getPropertiesDescription(Context context) {
+        StringBuilder sb = new StringBuilder();
         sb.append(context.getResources().getString(R.string.property));
         sb.append(" ( ");
         boolean isAdd = false;
@@ -57,7 +57,7 @@ public class BleCharacteristicModel {
     }
 
     public String toString(Context context) {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         sb.append(uuid);
         sb.append("\n");
         sb.append(getPropertiesDescription(context));

@@ -2,6 +2,11 @@ package com.newland.ble.callback;
 
 import android.bluetooth.BluetoothGatt;
 
+/**
+ * 连接状态改变的回调函数
+ * 
+ * @author chy
+ */
 public interface IConnectionChangeCallback {
 	/** 连接过程完成(可能是连接"成功"或"失败") */
 	public void onConnectFinish(boolean connectResult, boolean discoveredResult, BluetoothGatt gatt);

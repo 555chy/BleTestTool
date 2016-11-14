@@ -1,50 +1,36 @@
 package com.newland.model;
 
+import android.content.Context;
+
+import com.newland.global.Constants;
+import com.newland.utils.HexConvertUtils;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Arrays;
-
-import android.content.Context;
-
-import com.newland.bletesttool.R;
-import com.newland.global.Constant;
-import com.newland.utils.HexConvertUtils;
 
 /**
- * 发送的消息模型
+ * 发送历史记录
  */
-public class MsgSendModel {
-
-	/** 消息的编码("UTF8"或"HEX") */
-	public enum EncodingType {
-		UTF8, HEX
-	}
+public class MsgSendHistoryModel {
 
 	/** 消息的编码 */
 	protected EncodingType encodingType;
 	/** 消息数据 */
 	protected byte[] msg;
 
-	protected MsgSendModel() {
-	}
-
-	public MsgSendModel(EncodingType encodingType, byte[] msg) {
+	public MsgSendHistoryModel(EncodingType encodingType, byte[] msg) {
 		this.encodingType = encodingType;
 		this.msg = msg;
 	}
 
-	public int getMsgLen() {
-		if (msg == null) {
-			return 0;
-		}
-		return msg.length;
-	}
-
-	public MsgSendModel(byte[] serializeByteArray, int offset, int len) throws IOException, IllegalArgumentException {
+	/**
+	 * 从序列化后的字节数组中加载数据
+	 */
+	public MsgSendHistoryModel(byte[] serializeByteArray, int offset, int len) throws IOException, IllegalArgumentException {
 		ByteArrayInputStream bais = new ByteArrayInputStream(serializeByteArray, offset, len);
 		DataInputStream dis = new DataInputStream(bais);
 		byte ordinal = dis.readByte();
@@ -65,21 +51,21 @@ public class MsgSendModel {
 		bais.close();
 	}
 
+	/**
+	 * 获取编码类型
+	 */
 	public EncodingType getEncodingType() {
 		return encodingType;
 	}
 
 	/**
-	 * 获取编码类型的字符串形式
+	 * 获取消息字节数组形式的长度
 	 */
-	public String getEncodingTypeStr(Context context) {
-		switch (encodingType) {
-		case UTF8:
-			return context.getResources().getString(R.string.utf8);
-		case HEX:
-			return context.getResources().getString(R.string.hex);
+	public int getMsgLen() {
+		if (msg == null) {
+			return 0;
 		}
-		return null;
+		return msg.length;
 	}
 
 	public byte[] getMsg() {
@@ -87,46 +73,39 @@ public class MsgSendModel {
 	}
 
 	/**
-	 * 将数据以16进制形式打印出来
-	 */
-	public String getMsgHexStr(Context context) {
-		if (getMsgLen() == 0) {
-			return "";
-		}
-		return HexConvertUtils.byteArrToHexStr(context, msg);
-	}
-
-	/**
 	 * 将数据转化为字符串(在打印日志时使用)
 	 */
 	public String getMsgStr(Context context) {
+		String str = "";
 		if (getMsgLen() > 0) {
 			switch (encodingType) {
-			case UTF8:
-				try {
-					return new String(msg, Constant.CHARSET_NAME);
-				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
-				}
-			case HEX:
-				return HexConvertUtils.byteArrToHexStr(context, msg);
+				case HEX:
+					str = HexConvertUtils.byteArrToHexStr(context, msg);
+					break;
+				case UTF8:
+					try {
+						str = new String(msg, Constants.CHARSET_NAME);
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}
+					break;
 			}
 		}
-		return "";
+		return str;
 	}
 
 	/**
 	 * 将数据转化为字符串(在"发送历史记录"中使用)
 	 */
 	public String toString(Context context) {
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		sb.append("[");
 		sb.append(encodingType);
 		sb.append("] ");
 		sb.append(getMsgStr(context));
 		if (encodingType == EncodingType.UTF8) {
 			sb.append(" (");
-			sb.append(getMsgHexStr(context));
+			sb.append(HexConvertUtils.byteArrToHexStrBuff(context, msg));
 			sb.append(")");
 		}
 		return sb.toString();
@@ -153,8 +132,8 @@ public class MsgSendModel {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof MsgSendModel) {
-			MsgSendModel model = (MsgSendModel) obj;
+		if (obj instanceof MsgSendHistoryModel) {
+			MsgSendHistoryModel model = (MsgSendHistoryModel) obj;
 			if (encodingType != model.encodingType) {
 				return false;
 			}

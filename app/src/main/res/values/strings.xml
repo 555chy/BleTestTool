@@ -31,6 +31,7 @@
     <string name="select_uuid">选择UUID</string>
     <string name="about">关于</string>
     <string name="show_time">显示时间</string>
+    <string name="color_flag">颜色标记</string>
     <string name="receive_encoding">接收编码:</string>
     <string name="utf8">UTF8</string>
     <string name="hex">HEX</string>

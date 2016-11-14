@@ -1,12 +1,10 @@
 package com.newland.adapter;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.CompoundButton;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
@@ -28,25 +26,37 @@ public class BleCharacteristicAdapter extends BaseAdapter {
         this.bleCharacteristics = bleCharacteristics;
     }
 
+    /**
+     * 获取待读取的特征的UUID
+     */
     public String getReadUuid() {
-        if(readIndex == -1) {
+        if (readIndex == -1) {
             return null;
         }
         return bleCharacteristics[readIndex].getUuid();
     }
 
+    /**
+     * 获取待写入的特征的UUID
+     */
     public String getWriteUuid() {
-        if(writeIndex == -1) {
+        if (writeIndex == -1) {
             return null;
         }
         return bleCharacteristics[writeIndex].getUuid();
     }
 
+    /**
+     * 设置当前选中的待读的特征的UUID
+     */
     private void setReadIndex(int index) {
         this.readIndex = index;
         notifyDataSetChanged();
     }
 
+    /**
+     * 设置当前选中的待写的特征的UUID
+     */
     private void setWriteIndex(int index) {
         this.writeIndex = index;
         notifyDataSetChanged();
@@ -90,14 +100,14 @@ public class BleCharacteristicAdapter extends BaseAdapter {
         holder.readRb.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ((RadioButton)view).setChecked(true);
+                ((RadioButton) view).setChecked(true);
                 setReadIndex(position);
             }
         });
         holder.writeRb.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ((RadioButton)view).setChecked(true);
+                ((RadioButton) view).setChecked(true);
                 setWriteIndex(position);
             }
         });

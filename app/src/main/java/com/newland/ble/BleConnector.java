@@ -9,30 +9,23 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 
+import com.newland.ble.callback.BleGattCallbackImpl;
 import com.newland.ble.callback.IBleCallback;
 import com.newland.ble.callback.IConnectionChangeCallback;
 import com.newland.bletesttool.R;
-import com.newland.global.Constant;
+import com.newland.global.Constants;
 import com.newland.model.BleCharacteristicModel;
 
 import java.util.List;
 
 /**
  * Ble连接器
- *
+ * 
  * @since at least Android API 18
+ * @author chy
  */
 public class BleConnector {
 
-	private Context context;
-	/** ble连接参数 */
-	private BleConnParams params;
-	/** ble连接、读、写回调 */
-	private BleGattCallback bleGattCallback;
-	/** 同步锁 */
-	private final Object lockObj = new Object();
-	/** ble连接器 */
-	private BluetoothGatt bluetoothGatt;
 	/** 是否已经连接 */
 	private boolean isConnected;
 	/** 是否是手动断开(初始化时为true,连接上后该为false) */
@@ -53,6 +46,16 @@ public class BleConnector {
 	private boolean isWriteCharacteristicFound;
 	/** 是否已开启通知 */
 	private boolean isEnableNotification;
+
+	private Context context;
+	/** ble连接参数 */
+	private BleConnParams params;
+	/** ble连接、读、写回调 */
+	private BleGattCallbackImpl bleGattCallback;
+	/** 同步锁 */
+	private final Object lockObj = new Object();
+	/** ble连接器 */
+	private BluetoothGatt bluetoothGatt;
 	/** ble通讯工具 */
 	private BleConnection bleConnection;
 	/** 提供给界面端的回调函数 */
@@ -79,6 +82,7 @@ public class BleConnector {
 		public void onDisconnect() {
 			if (isConnected) {
 				isConnected = false;
+				bleConnection.close();
 				bleCallback.onDisconnect(isManualDisconnect);
 				if (!isManualDisconnect) {
 					reconnect();
@@ -106,12 +110,6 @@ public class BleConnector {
 		return (isConnected && isServiceDiscovered);
 	}
 
-	/**
-	 * 设置超时重连
-	 *
-	 * @param isAutoReconnect   当连接被动断开时，是否启动重连机制
-	 * @param reconnectInterval 重连时间间隔(单位:毫秒)
-	 */
 	/**
 	 * 设置超时重连
 	 *
@@ -238,7 +236,7 @@ public class BleConnector {
 			throw new Exception(context.getResources().getString(R.string.err_bluetooth_is_not_enabled));
 		}
 		BluetoothDevice device = params.getDevice();
-		bleGattCallback = new BleGattCallback(context, callback);
+		bleGattCallback = new BleGattCallbackImpl(context, callback);
 		bluetoothGatt = null;
 		isConnected = false;
 		synchronized (lockObj) {
@@ -301,10 +299,10 @@ public class BleConnector {
 							e.printStackTrace();
 						}
 					} else {
-						leftTime -= Constant.DETECT_TIME_INTERVAL;
+						leftTime -= Constants.DETECT_TIME_INTERVAL;
 					}
 					try {
-						Thread.sleep(Constant.DETECT_TIME_INTERVAL);
+						Thread.sleep(Constants.DETECT_TIME_INTERVAL);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -370,6 +368,7 @@ public class BleConnector {
 		if (isConnected) {
 			if (bluetoothGatt != null) {
 				bluetoothGatt.close();
+				bleConnection.close();
 				//主动调用close会把gatt直接关闭,因此就不会调用gatt的回调事件了
 				bleCallback.onDisconnect(isManualDisconnect);
 			}

@@ -1,8 +1,8 @@
 package com.newland.utils;
 
-import com.newland.bletesttool.R;
-
 import android.content.Context;
+
+import com.newland.bletesttool.R;
 
 /**
  * 字节数组与16进制字符串相互转换的工具
@@ -13,18 +13,18 @@ public class HexConvertUtils {
      * 字节数组转化为16进制字符串
      */
     public static String byteArrToHexStr(Context context, byte[] buffer) throws IllegalArgumentException {
-        StringBuffer sb = byteArrToHexStrBuff(context, buffer);
+        StringBuilder sb = byteArrToHexStrBuff(context, buffer);
         return sb == null ? null : sb.toString();
     }
 
     /**
      * 字节数组转换为16进制字符串缓冲器
      */
-    public static StringBuffer byteArrToHexStrBuff(Context context, byte[] buffer) throws IllegalArgumentException {
-        if (buffer == null) {
+    public static StringBuilder byteArrToHexStrBuff(Context context, byte[] buffer) throws IllegalArgumentException {
+        if (buffer == null || buffer.length == 0) {
             throw new IllegalArgumentException(context.getResources().getString(R.string.err_buff_cannot_be_null));
         }
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         for (int i = 0; i < buffer.length; i++) {
             if (i != 0) {
                 sb.append(" ");

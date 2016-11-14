@@ -1,6 +1,6 @@
 package com.newland.global;
 
-public class Constant {
+public class Constants {
 
 	/** 字符串编码 */
 	public static final String CHARSET_NAME = "utf-8";
@@ -9,6 +9,8 @@ public class Constant {
 	public static final String SP_KEY_IS_UTF8 = "isUtf8";
 	/** 是否需要显示时间 */
 	public static final String SP_KEY_IS_SHOW_TIME = "isShowTime";
+	/** 是否显示颜色标记 */
+	public static final String SP_KEY_IS_SHOW_COLOR = "isShowColor";
 	/** 是否自动回发 */
 	public static final String SP_KEY_IS_AUTO_SEND_BACK = "isSendBack";
 	/** 是否需要自动重连 */
@@ -45,4 +47,5 @@ public class Constant {
 
 	/** 检测时间间隔(单位:毫秒) */
 	public static final long DETECT_TIME_INTERVAL = 500;
+
 }

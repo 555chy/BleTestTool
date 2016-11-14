@@ -1,19 +1,21 @@
 package com.newland.ble;
 
-import java.util.UUID;
-
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Context;
-import android.util.Log;
 
+import com.newland.ble.callback.BleGattCallbackImpl;
 import com.newland.ble.callback.IBleCallback;
 import com.newland.ble.callback.IExecResultCallback;
 import com.newland.bletesttool.R;
 import com.newland.utils.HexConvertUtils;
 
+import java.util.UUID;
+
 /**
  * Ble读写装置
+ * 
+ * @author chy
  */
 public class BleConnection {
 
@@ -21,6 +23,8 @@ public class BleConnection {
 	private static final byte PACKAGE_DATA_LEN = 20;
 
 	private Context context;
+	/** gatt连接是否已打开 */
+	private boolean isOpen;
 	/** ble读写器 */
 	private BluetoothGatt bluetoothGatt;
 	/** ble连接参数 */
@@ -43,7 +47,7 @@ public class BleConnection {
 		}
 
 		@Override
-		public void onNotifyReturn(UUID uuid, byte[] value) {
+		public void onNotifyReturn(UUID uuid, final byte[] value) {
             if (!bleConnParams.getCharacteristicReadUuid().equals(uuid)) {
                 // Log.w(TAG, "onNotifyReturn deprecated, uuid is not equal, uuid = " + uuid);
                 return;
@@ -55,8 +59,9 @@ public class BleConnection {
 		}
 	};
 
-	public BleConnection(Context context, BleGattCallback bleGattCallback, BluetoothGatt bluetoothGatt, BleConnParams bleConnParams, IBleCallback bleCallback) {
+	public BleConnection(Context context, BleGattCallbackImpl bleGattCallback, BluetoothGatt bluetoothGatt, BleConnParams bleConnParams, IBleCallback bleCallback) {
 		this.context = context;
+		this.isOpen = true;
 		this.bluetoothGatt = bluetoothGatt;
 		this.bleConnParams = bleConnParams;
 		this.bleCallback = bleCallback;
@@ -67,16 +72,16 @@ public class BleConnection {
 	 * 阻塞方法, 将数据传给服务端
 	 */
 	public synchronized void write(byte[] buffer) {
-		bleCallback.log("write all data=" + HexConvertUtils.byteArrToHexStr(context, buffer) + "\n" + "write divide package count = " + Math.ceil((float) buffer.length / (float) PACKAGE_DATA_LEN));
+//		bleCallback.log("write all data=" + HexConvertUtils.byteArrToHexStr(context, buffer) + "\n" + "write divide package count = " + Math.ceil((float) buffer.length / (float) PACKAGE_DATA_LEN));
 		BluetoothGattCharacteristic gattCharacteristic = bleConnParams.getBleGattCharacteristic(bluetoothGatt, false);
 		if (gattCharacteristic == null) {
 			bleCallback.onWriteReturn(false, context.getResources().getString(R.string.err_ble_found_characteristic_fail), buffer.length, 0);
 		}
 		int offset = 0;
 		writeIntervalPolicy.resetTryTimes();
-		while (offset < buffer.length) {
+		while (isOpen && offset < buffer.length) {
 			byte[] childBuffer = clipBuffer(buffer, offset);
-			bleCallback.log("write prepare, buffer=" + HexConvertUtils.byteArrToHexStr(context, childBuffer));
+//			bleCallback.log("write prepare, buffer=" + HexConvertUtils.byteArrToHexStr(context, childBuffer));
 			if(childBuffer == null || childBuffer.length == 0) {
 				break;
 			}
@@ -99,13 +104,16 @@ public class BleConnection {
 						e.printStackTrace();
 					}
 				}
-			} while (!writeIntervalPolicy.isExecSucc() && !writeIntervalPolicy.isReachMaxFailTimes());
-			if (writeIntervalPolicy.isReachMaxFailTimes()) {
-				bleCallback.onWriteReturn(false, "write fail, has written " + offset + "/" + buffer.length, buffer.length, offset);
-				return;
+			} while (isOpen && !writeIntervalPolicy.isExecSucc() && !writeIntervalPolicy.isReachMaxFailTimes());
+			if (!writeIntervalPolicy.isExecSucc()) {
+				break;
 			}
 		}
-		bleCallback.onWriteReturn(true, null, buffer.length, buffer.length);
+		if(offset < buffer.length) {
+			bleCallback.onWriteReturn(false, HexConvertUtils.byteArrToHexStr(context, buffer) + ", has written " + offset + "/" + buffer.length, buffer.length, offset);
+		} else {
+			bleCallback.onWriteReturn(true, null, buffer.length, buffer.length);
+		}
 	}
 
 	/**
@@ -128,15 +136,22 @@ public class BleConnection {
 	}
 
 	/**
+	 * 当gatt连接关闭后，如果还在写，要释放相应的对象锁，以免假死
+	 */
+	public void close() {
+		isOpen = false;
+	}
+
+	/**
 	 * 写策略
 	 */
 	class WritePolicy {
 		/** wait-notify等待时间 */
-		private static final long WAIT_TIME = 500;
+		private static final long WAIT_TIME = 400;
 		/** 写的间隔时间(单位:毫秒) */
 		private static final long WRITE_INTERVAL = 80;
 		/** 最大尝试次数 */
-		private static final byte MAX_TRY_TIMES = 1;
+		private static final byte MAX_TRY_TIMES = 3;
 
 		/** 写的间隔时间(单位:毫秒) */
 		private long writeInterval = WRITE_INTERVAL;
@@ -146,8 +161,6 @@ public class BleConnection {
 		private byte tryTimes = 0;
 		/** 判断是否已经得到了获取到返回结果 */
 		private boolean isAlreadyGetStatus = false;
-		/** 同步对象 */
-		private final Object lockObj = new Object();
 
 		/**
 		 * @return 写的最大时间间隔(单位:毫秒)
@@ -199,7 +212,6 @@ public class BleConnection {
 		 * @param result 执行结果
 		 */
 		public void onExecReturn(boolean result) {
-			Log.e("", "onExecReturn " + result);
 			if (isAlreadyGetStatus) {
 				return;
 			}
@@ -213,9 +225,9 @@ public class BleConnection {
 		}
 
 		public void objWait() {
-			synchronized (lockObj) {
+			synchronized (this) {
 				try {
-					lockObj.wait(WAIT_TIME);
+					wait(WAIT_TIME);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -223,8 +235,8 @@ public class BleConnection {
 		}
 
 		public void objNotify() {
-			synchronized (lockObj) {
-				lockObj.notifyAll();
+			synchronized (this) {
+				notifyAll();
 			}
 		}
 	}

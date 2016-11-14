@@ -35,16 +35,16 @@
                 android:orientation="vertical">
 
                 <RadioButton
-                    android:id="@+id/utf8_rb"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/utf8" />
-
-                <RadioButton
                     android:id="@+id/hex_rb"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/hex" />
+
+                <RadioButton
+                    android:id="@+id/utf8_rb"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/utf8" />
             </RadioGroup>
 
             <View
@@ -57,6 +57,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/show_time" />
+
+            <CheckBox
+                android:id="@+id/show_color_cb"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/color_flag" />
 
             <CheckBox
                 android:id="@+id/send_back_cb"

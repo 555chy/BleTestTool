@@ -1,14 +1,14 @@
 package com.newland.ble;
 
-import java.util.ArrayList;
-
-import com.newland.ble.callback.IBleScanCallback;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.text.TextUtils;
+
+import com.newland.ble.callback.IBleScanCallback;
+
+import java.util.ArrayList;
 
 /**
  * Ble扫描筛选器<br/>
@@ -18,6 +18,8 @@ import android.text.TextUtils;
  * <li>android.permission.BLUETOOTH_ADMIN</li>
  * <li>android.permission.ACCESS_COARSE_LOCATION</li>
  * </ol>
+ * 
+ * @author chy
  */
 public class BleScanFilter {
     private BluetoothManager bluetoothManager;
