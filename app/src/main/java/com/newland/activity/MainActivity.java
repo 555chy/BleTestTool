@@ -3,6 +3,7 @@ package com.newland.activity;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.ScanCallback;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
@@ -21,7 +22,6 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.newland.adapter.BleCharacteristicAdapter;
@@ -31,6 +31,7 @@ import com.newland.ble.callback.IBleCallback;
 import com.newland.ble.callback.IBleScanCallback;
 import com.newland.bletesttool.R;
 import com.newland.global.Constants;
+import com.newland.manager.IntSpinnerManager;
 import com.newland.manager.ViewUpdateManager;
 import com.newland.model.BleCharacteristicModel;
 import com.newland.model.BleDeviceModel;
@@ -43,7 +44,6 @@ import com.newland.model.MsgSendHistoryList;
 import com.newland.model.MsgSendHistoryModel;
 import com.newland.model.MsgSendRecvModel;
 import com.newland.model.MsgSendRecvModel.Direction;
-import com.newland.utils.BusinessLogicalUtils;
 import com.newland.utils.FileUtils;
 import com.newland.utils.HexConvertUtils;
 import com.newland.utils.PrefUtils;
@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity implements OnClickListener, CompoundButton.OnCheckedChangeListener, AdapterView.OnItemSelectedListener, ViewUpdateManager.IUpdateCallback {
 
@@ -71,12 +72,14 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private CheckBox showColorCb;
 	/** 是否自动回发 */
 	private CheckBox autoSendBackCb;
-	/** 是否自动重连 */
+	/** 扫描超时时间下拉框 */
+//	private Spinner scanTimeoutSpinner;
+	/** 是否自动重连下拉框 */
 	private CheckBox autoReconnectCb;
-	/** 尝试重连时间间隔 */
-	private Spinner reconnectIntervalSpinner;
-	/** 扫描超时时间 */
-	private Spinner scanTimeoutSpinner;
+	/** 尝试重连时间间隔下拉框 */
+//	private Spinner reconnectIntervalSpinner;
+	/** 超时重连机制持续的最长时间下拉框 */
+//	private Spinner reconnectMaxTimeSpinner;
 	/** 显示UUID设置对话框 */
 	private Button uuidSettingBtn;
 	/** 检测并弹窗选择UUID按钮 */
@@ -106,8 +109,15 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private ViewUpdateManager msgTvUpdateManager;
 	/** 接收(下行流量)文本框更新管理器 */
 	private ViewUpdateManager rxTvUpdateManager;
-	/** 传送(上行流量) */
+	/** 传送(上行流量)文本框更新管理器 */
 	private ViewUpdateManager txTvUpdateManager;
+
+    /** 扫描超时时间下拉框管理器 */
+    private IntSpinnerManager scanTimeoutSpinnerManager;
+    /** 尝试重连时间间隔下拉框管理器 */
+    private IntSpinnerManager reconnectIntervalSpinnerManager;
+    /** 超时重连机制持续的最长时间下拉框管理器 */
+    private IntSpinnerManager reconnectMaxTimeSpinnerManager;
 
 	private Activity activity = this;
 	/** 以Utf8编码显示还是以Hex格式显示 */
@@ -118,16 +128,14 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	private boolean isShowColor;
 	/** 是否自动回发 */
 	private boolean isAutoSendBack;
-	/** 是否自动重连 */
-	private boolean isAutoReconnect;
-	/** 重连下拉框当前选中的索引号 */
-	private int reconnectIntervalSelection;
-	/** 重连间隔(隔几毫秒重连一次) */
-	private long reconnectInterval;
-	/** 扫描超时下拉框当前选中的索引号 */
-	private int scanTimeoutSelection;
 	/** 扫描超时时间(单位:毫秒) */
 	private long scanTimeout;
+	/** 是否自动重连 */
+	private boolean isAutoReconnect;
+	/** 重连间隔(隔几毫秒重连一次) */
+	private long reconnectInterval;
+	/** 重连机制持续的最长时间(单位:毫秒) */
+	private long reconnectMaxTime;
 	/** 以Utf8编码发送还是以Hex格式发送 */
 	private boolean isSendUtf8;
 	/** 当连接时,是否检测UUID(弹窗选择service和characteristic) */
@@ -234,8 +242,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		}
 
 		@Override
-		public void onReconnectEnd() {
-			addLog(LogLevel.NORMAL, R.string.reconnect_stop);
+		public void onReconnectEnd(boolean isReachReconnectMaxTime) {
+			if(isReachReconnectMaxTime) {
+				addLog(LogLevel.NORMAL, R.string.reconnect_reach_max_time_stop);
+			} else {
+				addLog(LogLevel.NORMAL, R.string.reconnect_succeed_stop);
+			}
 		}
 
 		@Override
@@ -271,9 +283,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setContentView(R.layout.activity_main);
 		findView();
-		setListener();
 		initData();
 		setData();
+		setListener();
 	}
 
 	private void findView() {
@@ -284,10 +296,11 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		hexRb = (RadioButton) findViewById(R.id.hex_rb);
 		showTimeCb = (CheckBox) findViewById(R.id.show_time_cb);
 		showColorCb = (CheckBox) findViewById(R.id.show_color_cb);
+//		scanTimeoutSpinner = (Spinner) findViewById(R.id.scan_timeout_spinner);
 		autoSendBackCb = (CheckBox) findViewById(R.id.send_back_cb);
 		autoReconnectCb = (CheckBox) findViewById(R.id.auto_reconnect_cb);
-		reconnectIntervalSpinner = (Spinner) findViewById(R.id.reconnect_interval_spinner);
-		scanTimeoutSpinner = (Spinner) findViewById(R.id.scan_timeout_spinner);
+//		reconnectIntervalSpinner = (Spinner) findViewById(R.id.reconnect_interval_spinner);
+//		reconnectMaxTimeSpinner = (Spinner) findViewById(R.id.reconnect_max_time_spanner);
 		uuidSelectBtn = (Button) findViewById(R.id.uuid_select_btn);
 		neverSelectUuidWhenConnectCb = (CheckBox) findViewById(R.id.never_select_uuid_cb);
 		sendHistoryBtn = (Button) findViewById(R.id.send_history_btn);
@@ -300,6 +313,99 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		clearTextBtn = (Button) findViewById(R.id.clear_text_btn);
 //		rxTv = (TextView) findViewById(R.id.rx_tv);
 //		txTv = (TextView) findViewById(R.id.tx_tv);
+	}
+
+	/**
+	 * 初始化数据
+	 */
+	private void initData() {
+		myPref = PrefUtils.getInstance(activity);
+		isUtf8 = myPref.getBoolean(Constants.SP_KEY_IS_UTF8);
+		isAutoSendBack = myPref.getBoolean(Constants.SP_KEY_IS_AUTO_SEND_BACK, true);
+		scanTimeout = myPref.getLong(Constants.SP_KEY_SCAN_TIMEOUT);
+		isAutoReconnect = myPref.getBoolean(Constants.SP_KEY_IS_AUTO_RECONNECT);
+		reconnectInterval = myPref.getLong(Constants.SP_KEY_RECONNECT_INTERVAL);
+		reconnectMaxTime = myPref.getLong(Constants.SP_KEY_RECONNECT_MAX_TIME);
+		isShowTime = myPref.getBoolean(Constants.SP_KEY_IS_SHOW_TIME);
+		isShowColor = myPref.getBoolean(Constants.SP_KEY_IS_SHOW_COLOR);
+		isSendUtf8 = myPref.getBoolean(Constants.SP_KEY_IS_SEND_UTF8);
+		serviceUuid = myPref.getString(Constants.SP_KEY_UUID_SERVICE);
+		if (serviceUuid == null) {
+			serviceUuid = Constants.UUID_SERVICE;
+		}
+		readUuid = myPref.getString(Constants.SP_KEY_UUID_READ);
+		if (readUuid == null) {
+			readUuid = Constants.UUID_CHARACTERISTIC_READ;
+		}
+		writeUuid = myPref.getString(Constants.SP_KEY_UUID_WRITE);
+		if (writeUuid == null) {
+			writeUuid = Constants.UUID_CHARACTERISTIC_WRITE;
+		}
+		isDetectUuidWhenConnect = myPref.getBoolean(Constants.SP_KEY_IS_DETECT_UUID_WHEN_CONNECT);
+		String sendHistoryStr = myPref.getString(Constants.SP_KEY_SEND_HISTORY);
+
+		msgTvUpdateManager = new ViewUpdateManager(activity, R.id.msg_tv, this);
+		rxTvUpdateManager = new ViewUpdateManager(activity, R.id.rx_tv, this);
+		txTvUpdateManager = new ViewUpdateManager(activity, R.id.tx_tv, this);
+
+		scanTimeoutSpinnerManager = new IntSpinnerManager(activity, R.id.scan_timeout_spinner);
+		scanTimeout = scanTimeoutSpinnerManager.setSelectionByValue((int) (scanTimeout / 1000)) * 1000L;
+
+		reconnectIntervalSpinnerManager = new IntSpinnerManager(activity, R.id.reconnect_interval_spinner);
+		reconnectInterval = reconnectIntervalSpinnerManager.setSelectionByValue((int) (reconnectInterval / 1000)) * 1000L;
+
+		reconnectMaxTimeSpinnerManager = new IntSpinnerManager(activity, R.id.reconnect_max_time_spanner);
+		adjustReconnectMaxTimeSpinnerItem();
+
+		sendHistoryList = new MsgSendHistoryList(sendHistoryStr);
+		msgList = new MsgList();
+		bleDeviceList = new ArrayList<BleDeviceModel>();
+		bleScanFilter = new BleScanFilter(activity, null);
+		bleConnector = new BleConnector(activity, bleCallback, isAutoReconnect, reconnectInterval, reconnectMaxTime);
+	}
+
+	@Override
+	public void updateView(View view) {
+		TextView textView = (TextView) view;
+		switch (view.getId()) {
+			case R.id.msg_tv:
+				resetText(textView);
+				break;
+			case R.id.rx_tv:
+				resetRx(textView);
+				break;
+			case R.id.tx_tv:
+				resetTx(textView);
+				break;
+		}
+	}
+
+	/**
+	 * 将数据绑定到控件上
+	 */
+	private void setData() {
+		utf8Rb.setChecked(isUtf8);
+		hexRb.setChecked(!isUtf8);
+		showTimeCb.setChecked(isShowTime);
+		showColorCb.setChecked(isShowColor);
+		autoSendBackCb.setChecked(isAutoSendBack);
+		autoReconnectCb.setChecked(isAutoReconnect);
+        scanTimeoutSpinnerManager.setSelectionByValue((int)(scanTimeout / 1000));
+		reconnectIntervalSpinnerManager.setSelectionByValue((int)(reconnectInterval / 1000));
+        reconnectMaxTimeSpinnerManager.setSelectionByValue((int)(reconnectMaxTime / 1000));
+		neverSelectUuidWhenConnectCb.setChecked(!isDetectUuidWhenConnect);
+		deleteDevice();
+		clearText();
+	}
+
+	@Override
+	protected void onStop() {
+		try {
+			myPref.putString(Constants.SP_KEY_SEND_HISTORY, sendHistoryList.toSerializeStr());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		super.onStop();
 	}
 
 	/**
@@ -326,8 +432,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		autoSendBackCb.setOnCheckedChangeListener(this);
 		autoReconnectCb.setOnCheckedChangeListener(this);
 		neverSelectUuidWhenConnectCb.setOnCheckedChangeListener(this);
-		reconnectIntervalSpinner.setOnItemSelectedListener(this);
-		scanTimeoutSpinner.setOnItemSelectedListener(this);
+		scanTimeoutSpinnerManager.setOnItemSelectedListener(this);
+        reconnectIntervalSpinnerManager.setOnItemSelectedListener(this);
+        reconnectMaxTimeSpinnerManager.setOnItemSelectedListener(this);
 		uuidSettingBtn.setOnClickListener(this);
 		uuidSelectBtn.setOnClickListener(this);
 		sendHistoryBtn.setOnClickListener(this);
@@ -338,22 +445,25 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		deleteDeviceBtn.setOnClickListener(this);
 		clearTextBtn.setOnClickListener(this);
 	}
+
 	@Override
 	public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
-		String key = null;
 		switch(adapterView.getId()) {
-			case R.id.reconnect_interval_spinner:
-				key = Constants.SP_KEY_RECONN_INTERVAL_SELECTION;
-				reconnectInterval = BusinessLogicalUtils.getSpinnerIntValue(reconnectIntervalSpinner, position) * 1000;
-				bleConnector.setAutoReconnect(isAutoReconnect, reconnectInterval);
-				break;
 			case R.id.scan_timeout_spinner:
-				key = Constants.SP_KEY_SCAN_TIMEOUT_SELECTION;
-				scanTimeout = BusinessLogicalUtils.getSpinnerIntValue(scanTimeoutSpinner, position) * 1000;
+				scanTimeout = scanTimeoutSpinnerManager.getSpinnerIntValue(position) * 1000L;
+                myPref.putLong(Constants.SP_KEY_SCAN_TIMEOUT, scanTimeout);
 				break;
-		}
-		if(key != null) {
-			myPref.putInt(key, position);
+			case R.id.reconnect_interval_spinner:
+				reconnectInterval = reconnectIntervalSpinnerManager.getSpinnerIntValue(position) * 1000L;
+                myPref.putLong(Constants.SP_KEY_RECONNECT_INTERVAL, reconnectInterval);
+				adjustReconnectMaxTimeSpinnerItem();
+				bleConnector.setReconnectInterval(reconnectInterval);
+				break;
+			case R.id.reconnect_max_time_spanner:
+				reconnectMaxTime = reconnectMaxTimeSpinnerManager.getSpinnerIntValue(position) * 1000L;
+                myPref.putLong(Constants.SP_KEY_RECONNECT_MAX_TIME, reconnectMaxTime);
+				bleConnector.setReconnectMaxTime(reconnectMaxTime);
+				break;
 		}
 	}
 
@@ -381,8 +491,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 				break;
 			case R.id.auto_reconnect_cb:
 				isAutoReconnect = paramBoolean;
-				key = Constants.SP_KEY_IS_AUTO_RECONN;
-				bleConnector.setAutoReconnect(isAutoReconnect, reconnectInterval);
+				key = Constants.SP_KEY_IS_AUTO_RECONNECT;
+				bleConnector.setAutoReconnect(isAutoReconnect);
+				setReconnectOptionEnabled(isAutoReconnect);
 				break;
 			case R.id.never_select_uuid_cb:
 				isDetectUuidWhenConnect = !paramBoolean;
@@ -431,109 +542,47 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 	}
 
 	/**
-	 * 初始化数据
-	 */
-	private void initData() {
-		myPref = PrefUtils.getInstance(activity);
-		isUtf8 = myPref.getBoolean(Constants.SP_KEY_IS_UTF8);
-		isAutoSendBack = myPref.getBoolean(Constants.SP_KEY_IS_AUTO_SEND_BACK, true);
-		isAutoReconnect = myPref.getBoolean(Constants.SP_KEY_IS_AUTO_RECONN);
-		reconnectIntervalSelection = myPref.getInt(Constants.SP_KEY_RECONN_INTERVAL_SELECTION);
-		reconnectInterval = BusinessLogicalUtils.getSpinnerIntValue(reconnectIntervalSpinner, reconnectIntervalSelection) * 1000;
-		scanTimeoutSelection = myPref.getInt(Constants.SP_KEY_SCAN_TIMEOUT_SELECTION);
-		scanTimeout = BusinessLogicalUtils.getSpinnerIntValue(scanTimeoutSpinner, scanTimeoutSelection) * 1000;
-		isShowTime = myPref.getBoolean(Constants.SP_KEY_IS_SHOW_TIME);
-		isShowColor = myPref.getBoolean(Constants.SP_KEY_IS_SHOW_COLOR);
-		isSendUtf8 = myPref.getBoolean(Constants.SP_KEY_IS_SEND_UTF8);
-		serviceUuid = myPref.getString(Constants.SP_KEY_UUID_SERVICE);
-		if (serviceUuid == null) {
-			serviceUuid = Constants.UUID_SERVICE;
-		}
-		readUuid = myPref.getString(Constants.SP_KEY_UUID_READ);
-		if (readUuid == null) {
-			readUuid = Constants.UUID_CHARACTERISTIC_READ;
-		}
-		writeUuid = myPref.getString(Constants.SP_KEY_UUID_WRITE);
-		if (writeUuid == null) {
-			writeUuid = Constants.UUID_CHARACTERISTIC_WRITE;
-		}
-		isDetectUuidWhenConnect = myPref.getBoolean(Constants.SP_KEY_IS_DETECT_UUID_WHEN_CONNECT);
-		String sendHistoryStr = myPref.getString(Constants.SP_KEY_SEND_HISTORY);
-		sendHistoryList = new MsgSendHistoryList(sendHistoryStr);
-		msgList = new MsgList();
-		bleDeviceList = new ArrayList<BleDeviceModel>();
-		bleScanFilter = new BleScanFilter(activity, null);
-		bleConnector = new BleConnector(activity, bleCallback, isAutoReconnect, reconnectInterval);
-
-		msgTvUpdateManager = new ViewUpdateManager(activity, R.id.msg_tv, this);
-		rxTvUpdateManager = new ViewUpdateManager(activity, R.id.rx_tv, this);
-		txTvUpdateManager = new ViewUpdateManager(activity, R.id.tx_tv, this);
-	}
-
-	@Override
-	public void updateView(View view) {
-		TextView textView = (TextView) view;
-		switch (view.getId()) {
-			case R.id.msg_tv:
-				resetText(textView);
-				break;
-			case R.id.rx_tv:
-				resetRx(textView);
-				break;
-			case R.id.tx_tv:
-				resetTx(textView);
-				break;
-		}
-	}
-
-	/**
-	 * 将数据绑定到控件上
-	 */
-	private void setData() {
-		utf8Rb.setChecked(isUtf8);
-		hexRb.setChecked(!isUtf8);
-		showTimeCb.setChecked(isShowTime);
-		showColorCb.setChecked(isShowColor);
-		autoSendBackCb.setChecked(isAutoSendBack);
-		autoReconnectCb.setChecked(isAutoReconnect);
-		reconnectIntervalSpinner.setSelection(reconnectIntervalSelection);
-		scanTimeoutSpinner.setSelection(scanTimeoutSelection);
-		neverSelectUuidWhenConnectCb.setChecked(!isDetectUuidWhenConnect);
-		deleteDevice();
-		clearText();
-	}
-
-	@Override
-	protected void onStop() {
-		try {
-			myPref.putString(Constants.SP_KEY_SEND_HISTORY, sendHistoryList.toSerializeStr());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		super.onStop();
-	}
-
-	/**
 	 * 分别设置"扫描设备"、"停止搜索"、"删除设备"、"发送设置", 4个按钮的启用状态
 	 *
-	 * @param enableStart
+	 * @param scanBtnEnabled
 	 *            是否启用"扫描设备"按钮
-	 * @param enableStop
+	 * @param stopBtnEnabled
 	 *            是否启用"停止搜索"按钮
-	 * @param enableDelete
+	 * @param deleteBtnEnabled
 	 *            是否启用"删除设备"按钮
+	 * @param sendBtnEnabled
+	 * 			  是否启用"发送设置"和"uuid选择"按钮
 	 */
-	private void setBleBtnEnabled(final boolean enableStart, final boolean enableStop, final boolean enableDelete, final boolean enableSendSetting) {
+	private void setBleBtnEnabled(final boolean scanBtnEnabled, final boolean stopBtnEnabled, final boolean deleteBtnEnabled, final boolean sendBtnEnabled) {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				scanDeviceBtn.setEnabled(enableStart);
-				stopScanBtn.setEnabled(enableStop);
-				deleteDeviceBtn.setEnabled(enableDelete);
-				sendSettingBtn.setEnabled(enableSendSetting);
-				uuidSelectBtn.setEnabled(enableSendSetting);
+				scanDeviceBtn.setEnabled(scanBtnEnabled);
+				stopScanBtn.setEnabled(stopBtnEnabled);
+				deleteDeviceBtn.setEnabled(deleteBtnEnabled);
+				sendSettingBtn.setEnabled(sendBtnEnabled);
+				uuidSelectBtn.setEnabled(sendBtnEnabled);
 			}
 		});
+	}
+
+	/**
+	 * 设置是否启用重连参数配置控件
+	 */
+	private void setReconnectOptionEnabled(boolean enabled) {
+		reconnectIntervalSpinnerManager.setEnabled(enabled);
+		reconnectMaxTimeSpinnerManager.setEnabled(enabled);
+	}
+
+	/**
+	 * 当"重连间隔时间"改变时，需要调整"重连有效时长"的项，使得其每一个项的值都大于当前选中的"重连间隔时间"。
+	 * 同时调整"重连有效时长"的选中项到新的索引上。
+	 * 之后重新设置"重连有效时长"为该下拉框中有的且最接近的项的值
+	 */
+	private void adjustReconnectMaxTimeSpinnerItem() {
+		reconnectMaxTimeSpinnerManager.setSpinnerIntValueNotLessThan(R.array.reconnect_max_time_arr, (int) (reconnectInterval / 1000));
+		reconnectMaxTime = reconnectMaxTimeSpinnerManager.setSelectionByValue((int) (reconnectMaxTime / 1000)) * 1000L;
+		myPref.putLong(Constants.SP_KEY_RECONNECT_MAX_TIME, reconnectMaxTime);
 	}
 
 	/**
@@ -599,6 +648,20 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 		}).setNegativeButton(R.string.cancel, null).show();
 	}
 
+    /**
+     * 正确的uuid格式
+     * 00000000-0000-0000-0000-000000000000
+     *
+     * @return uuid字符串是否合法
+     */
+    public static boolean verifyUuid(String uuid) {
+        if (uuid.length() == 36) {
+            Pattern pattern = Pattern.compile("^\\d{8}-\\d{4}-\\d{4}-\\d{4}-\\d{12}$");
+            return pattern.matcher(uuid).matches();
+        }
+        return false;
+    }
+
 	/**
 	 * 显示"设置uuid对话框"
 	 */
@@ -621,16 +684,16 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 				String tmpWriteUuid = writeUuidEt.getText().toString();
 				LogLevel logLevel = LogLevel.ERROR;
 				String log = "";
-				if (!BusinessLogicalUtils.verifyUuid(tmpServiceUuid)) {
+				if (!verifyUuid(tmpServiceUuid)) {
 					log = getResources().getString(R.string.err_uuid_format_service);
 				}
-				if (!BusinessLogicalUtils.verifyUuid(tmpReadUuid)) {
+				if (!verifyUuid(tmpReadUuid)) {
 					if (!TextUtils.isEmpty(log)) {
 						log += "\n";
 					}
 					log += getResources().getString(R.string.err_uuid_format_read);
 				}
-				if (!BusinessLogicalUtils.verifyUuid(tmpWriteUuid)) {
+				if (!verifyUuid(tmpWriteUuid)) {
 					if (!TextUtils.isEmpty(log)) {
 						log += "\n";
 					}
@@ -712,7 +775,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 			}
 
 			@Override
-			public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
+			public void onScanResult(BluetoothDevice device, int rssi) {
 				BleDeviceModel model = new BleDeviceModel(activity, device, rssi);
 				if (!bleDeviceList.contains(model)) {
 					bleDeviceList.add(model);
@@ -726,6 +789,23 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
 				addLog(LogLevel.NORMAL, R.string.scan_device_stop);
 				showBleScanList();
 				setBleBtnEnabled(true, true, false, false);
+			}
+
+			@Override
+			public void onScanFail(int errorCode) {
+				String errorStr;
+				switch (errorCode) {
+					case ScanCallback.SCAN_FAILED_ALREADY_STARTED:
+						return;
+					case ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED:
+						break;
+					case ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED:
+						return;
+					case ScanCallback.SCAN_FAILED_INTERNAL_ERROR:
+						break;
+				}
+				addLog(LogLevel.ERROR, R.string.err_scan_need_restart);
+				msgTvUpdateManager.update();
 			}
 		});
 	}

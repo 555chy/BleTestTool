@@ -14,11 +14,13 @@ public class Constants {
 	/** 是否自动回发 */
 	public static final String SP_KEY_IS_AUTO_SEND_BACK = "isSendBack";
 	/** 是否需要自动重连 */
-	public static final String SP_KEY_IS_AUTO_RECONN = "isAutoReconn";
-	/** 重连下拉框当前选中的索引号 */
-	public static final String SP_KEY_RECONN_INTERVAL_SELECTION = "reconnIntervalSelection";
-	/** 扫描超时下拉框当前选中的索引号 */
-	public static final String SP_KEY_SCAN_TIMEOUT_SELECTION = "scanTimeoutSelection";
+	public static final String SP_KEY_IS_AUTO_RECONNECT = "isAutoReconnet";
+	/** 扫描超时时间(单位:毫秒) */
+	public static final String SP_KEY_SCAN_TIMEOUT = "scanTimeout";
+	/** 重连间隔时间(单位:毫秒) */
+	public static final String SP_KEY_RECONNECT_INTERVAL = "reconnectInterval";
+	/** 重连机制持续的最长时间(单位:毫秒) */
+	public static final String SP_KEY_RECONNECT_MAX_TIME = "reconnectMaxTime";
 	/** 上次发送时的编码使用的是utf8还是hex */
 	public static final String SP_KEY_IS_SEND_UTF8 = "isSendUtf8";
 	/** Ble服务UUID */

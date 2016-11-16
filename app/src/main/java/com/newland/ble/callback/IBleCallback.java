@@ -23,8 +23,8 @@ public interface IBleCallback {
 	/**
 	 * 数据发送结果回调
 	 *
-	 * @param result                    发送是否成功
-	 * @param errMsg                    发送失败时的错误描述
+	 * @param result                    	发送是否成功
+	 * @param errMsg                    	发送失败时的错误描述
 	 * @param preparedSendBytesCount	预计要发送的字节总数
 	 * @param sendSuccBytesCount		发送成功的字节数
 	 */
@@ -36,8 +36,12 @@ public interface IBleCallback {
 	/** 重连中 */
 	void onReconnecting();
 
-	/** 重连结束 */
-	void onReconnectEnd();
+	/**
+	 * 重连结束
+	 *
+	 * @param isReachReconnectMaxTime	是否达到尝试重连机制设定的最大时间
+	 */
+	void onReconnectEnd(boolean isReachReconnectMaxTime);
 
 	/** 重连结果("参数错误"或"重连成功") */
 	void onReconnectStateChange(boolean isConnected, String errMsg);

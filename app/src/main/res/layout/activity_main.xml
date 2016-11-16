@@ -75,6 +75,23 @@
                 android:layout_height="@dimen/divider_size"
                 android:background="@color/divider" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="@dimen/activity_horizontal_margin"
+                android:text="@string/scan_timeout" />
+
+            <Spinner
+                android:id="@+id/scan_timeout_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:entries="@array/scan_timeout_arr" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/divider_size"
+                android:background="@color/divider" />
+
             <CheckBox
                 android:id="@+id/auto_reconnect_cb"
                 android:layout_width="wrap_content"
@@ -91,24 +108,19 @@
                 android:id="@+id/reconnect_interval_spinner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:entries="@array/time_arr" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/divider_size"
-                android:background="@color/divider" />
+                android:entries="@array/reconnect_interval_arr" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="@dimen/activity_horizontal_margin"
-                android:text="@string/scan_timeout" />
+                android:text="@string/reconnect_max_time" />
 
             <Spinner
-                android:id="@+id/scan_timeout_spinner"
+                android:id="@+id/reconnect_max_time_spanner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:entries="@array/time_arr" />
+                android:entries="@array/reconnect_max_time_arr" />
 
             <View
                 android:layout_width="match_parent"

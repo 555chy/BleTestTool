@@ -3,7 +3,12 @@ package com.newland.ble;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.Context;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 
 import com.newland.ble.callback.IBleScanCallback;
@@ -24,17 +29,28 @@ import java.util.ArrayList;
 public class BleScanFilter {
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
+    /** 扫描回调函数 */
     private IBleScanCallback bleScanCallback;
+    /** 自定义扫描参数 */
     private BleScanParams params;
     /** 是否正在扫描中 */
     private boolean isScanning = false;
     /** 等待扫描超时的线程 */
     private TimeoutThread scanTimeoutThread;
+    /** API<21时使用的扫描回调函数 */
+    private OldBleScanCallback oldBleScanCallback;
+    /** API>=21时使用的BLE扫描器 */
+    private BluetoothLeScanner bleScanner;
+    /** API>=21时使用的扫描回调函数 */
+    private NewBleScanCallback newBleScanCallback;
+
 
     public BleScanFilter(Context context, BleScanParams params) {
         bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
         this.params = (params == null ? new BleScanParams() : params);
+        oldBleScanCallback = new OldBleScanCallback();
+        newBleScanCallback = new NewBleScanCallback();
     }
 
     /**
@@ -102,15 +118,16 @@ public class BleScanFilter {
             enableBluetooth();
             return false;
         }
-        boolean startResult;
-        // 开始扫描ble设备
-        if (params.hasServiceUuid()) {
-            startResult = bluetoothAdapter.startLeScan(params.getAdvertiseServiceUuidArray(), bleScanCallback);
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            boolean startResult;
+            // 开始扫描ble设备
+            startResult = bluetoothAdapter.startLeScan(oldBleScanCallback);
+            if (!startResult) {
+                return false;
+            }
         } else {
-            startResult = bluetoothAdapter.startLeScan(bleScanCallback);
-        }
-        if (!startResult) {
-            return false;
+            bleScanner = bluetoothAdapter.getBluetoothLeScanner();
+            bleScanner.startScan(newBleScanCallback);
         }
         // 如果超时线程已经开始(就是原本的状态就是扫描中),则想办法重置超时时间
         isScanning = true;
@@ -134,7 +151,11 @@ public class BleScanFilter {
     public synchronized void stopLeScan(boolean needCallback) {
         if (isScanning) {
             setScanning(false);
-            bluetoothAdapter.stopLeScan(bleScanCallback);
+            if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                bluetoothAdapter.stopLeScan(oldBleScanCallback);
+            } else {
+                bleScanner.stopScan(newBleScanCallback);
+            }
         }
         if (bleScanCallback != null && needCallback) {
             bleScanCallback.onScanFinished();
@@ -183,6 +204,39 @@ public class BleScanFilter {
                 }
             }
             return deviceList.add(device);
+        }
+    }
+
+    /**
+     * API<21时使用的扫描回调函数
+     */
+    class OldBleScanCallback implements BluetoothAdapter.LeScanCallback {
+
+        @Override
+        public void onLeScan(BluetoothDevice bluetoothDevice, int rssi, byte[] scanRecord) {
+            bleScanCallback.onScanResult(bluetoothDevice, rssi);
+        }
+
+    }
+
+    /**
+     * API>=21时使用的扫描回调函数
+     */
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    class NewBleScanCallback extends ScanCallback {
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            bleScanCallback.onScanResult(result.getDevice(), result.getRssi());
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            bleScanCallback.onScanFail(errorCode);
+            if(bluetoothAdapter != null) {
+                //一旦发生错误，除了重启蓝牙再没有其它解决办法
+                bluetoothAdapter.disable();
+                bluetoothAdapter.enable();
+            }
         }
     }
 

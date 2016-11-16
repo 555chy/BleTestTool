@@ -39,6 +39,7 @@
     <string name="auto_reconnect">断线重连</string>
     <string name="send_history">发送历史</string>
     <string name="reconnect_interval">尝试间隔(秒):</string>
+    <string name="reconnect_max_time">有效时长(秒):</string>
     <string name="set_succ">设置成功</string>
     <string name="try_connecting">尝试连接中&#8230;</string>
 
@@ -56,7 +57,8 @@
     <string name="connect_succ">连接成功</string>
     
     <string name="reconnect_start">启动断线重连机制</string>
-    <string name="reconnect_stop">终止断线重连机制</string>
+    <string name="reconnect_succeed_stop">连接成功，终止断线重连机制</string>
+    <string name="reconnect_reach_max_time_stop">到达重连机制最大有效时长，终止重连机制</string>
     <string name="reconnecting">重连中&#8230;</string>
     <string name="reconnect_succ">重连成功</string>
     <string name="reconnect_fail">重连失败</string>
@@ -106,5 +108,7 @@
     
     <string name="err_callback_func_cannot_be_null">回调函数不能为空</string>
     <string name="err_send_history_is_empty">发送历史记录为空</string>
+
+    <string name="err_scan_need_restart">扫描出现错误，需要重启蓝牙</string>
 
 </resources>

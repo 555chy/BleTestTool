@@ -1,13 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string-array name="time_arr">
+    <string-array name="scan_timeout_arr">
         <item>3</item>
         <item>5</item>
         <item>10</item>
         <item>15</item>
         <item>20</item>
+    </string-array>
+
+    <string-array name="reconnect_interval_arr">
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>20</item>
         <item>30</item>
+        <item>60</item>
+    </string-array>
+
+    <string-array name="reconnect_max_time_arr">
+        <item>30</item>
+        <item>60</item>
+        <item>90</item>
+        <item>120</item>
+        <item>150</item>
+        <item>180</item>
     </string-array>
 
 </resources>

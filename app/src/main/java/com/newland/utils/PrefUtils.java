@@ -39,14 +39,14 @@ public class PrefUtils {
         return sp.getBoolean(key, defValue);
     }
 
-    public boolean putInt(String key, int value) {
+    public boolean putLong(String key, long value) {
         SharedPreferences.Editor editor = sp.edit();
-        editor.putInt(key, value);
+        editor.putLong(key, value);
         return editor.commit();
     }
 
-    public int getInt(String key) {
-        return sp.getInt(key, 0);
+    public long getLong(String key) {
+        return sp.getLong(key, 0);
     }
 
     public boolean putString(String key, String value) {

@@ -26,6 +26,11 @@ import java.util.List;
  */
 public class BleConnector {
 
+	/** 默认重连时间间隔(单位:毫秒) */
+	private static final long RECONNECT_INTERVAL = 5000;
+	/** 默认重连机制持续的最长时间(单位:毫秒) */
+	private static final long RECONNECT_MAX_TIME = 30000;
+
 	/** 是否已经连接 */
 	private boolean isConnected;
 	/** 是否是手动断开(初始化时为true,连接上后该为false) */
@@ -34,10 +39,6 @@ public class BleConnector {
 	private boolean isReconnecting;
 	/** 是否自动重连 */
 	private boolean isAutoReconnect;
-	/** 重连时间间隔(单位:毫秒) */
-	private long reconnectInterval;
-	/** 在连接时是否自动检测UUID,并弹窗供用户选择 */
-	private boolean isDetectUuidWhenConnect;
 	/** 搜索服务是否成功 */
 	private boolean isServiceDiscovered;
 	/** 是否发现读特征 */
@@ -46,6 +47,12 @@ public class BleConnector {
 	private boolean isWriteCharacteristicFound;
 	/** 是否已开启通知 */
 	private boolean isEnableNotification;
+	/** 重连时间间隔(单位:毫秒) */
+	private long reconnectInterval;
+	/** 重连机制持续的最长时间(单位:毫秒) */
+	private long reconnectMaxTime;
+	/** 在连接时是否自动检测UUID,并弹窗供用户选择 */
+	private boolean isDetectUuidWhenConnect;
 
 	private Context context;
 	/** ble连接参数 */
@@ -91,7 +98,7 @@ public class BleConnector {
 		}
 	};
 
-	public BleConnector(Context context, IBleCallback bleCallback, boolean isAutoReconnect, long reconnectInterval) throws IllegalArgumentException {
+	public BleConnector(Context context, IBleCallback bleCallback, boolean isAutoReconnect, long reconnectInterval, long reconnectMaxTime) throws IllegalArgumentException {
 		// 必须在初始化时设置其标志，是为了避免断线重连
 		isManualDisconnect = true;
 		if (bleCallback == null) {
@@ -99,7 +106,9 @@ public class BleConnector {
 		}
 		this.context = context;
 		this.bleCallback = bleCallback;
-		setAutoReconnect(isAutoReconnect, reconnectInterval);
+		setAutoReconnect(isAutoReconnect);
+		setReconnectInterval(reconnectInterval);
+		setReconnectMaxTime(reconnectMaxTime);
 	}
 
 	/**
@@ -111,15 +120,48 @@ public class BleConnector {
 	}
 
 	/**
-	 * 设置超时重连
-	 *
-	 * @param isAutoReconnect   当连接被动断开时，是否启动重连机制
-	 * @param reconnectInterval 重连时间间隔(单位:毫秒)
+	 * 设置是否启用超时重连机制
 	 */
-	public void setAutoReconnect(boolean isAutoReconnect, long reconnectInterval) {
+	public void setAutoReconnect(boolean isAutoReconnect) {
 		this.isAutoReconnect = isAutoReconnect;
-		this.reconnectInterval = reconnectInterval;
 		reconnect();
+	}
+
+	/**
+	 * 设置重连时间间隔
+     */
+	public void setReconnectInterval(long reconnectInterval) {
+		this.reconnectInterval = reconnectInterval;
+	}
+
+	/**
+	 * 获取重连时间间隔，重连时间间隔不得小于{@link #RECONNECT_INTERVAL}
+	 */
+	private long getReconnectInterval() {
+		if(reconnectInterval < RECONNECT_INTERVAL) {
+			reconnectInterval = RECONNECT_INTERVAL;
+		}
+		return reconnectInterval;
+	}
+
+	/**
+	 * 设置重连机制持续的最长时间
+	 */
+	public void setReconnectMaxTime(long reconnectMaxTime) {
+		this.reconnectMaxTime = reconnectMaxTime;
+	}
+
+	/**
+	 * 获取重连机制持续的最长时间，重连机制持续的最长时间不得小于{@link #RECONNECT_MAX_TIME}
+	 */
+	private long getReconnectMaxTime() {
+		if(reconnectMaxTime < RECONNECT_MAX_TIME) {
+			reconnectMaxTime = RECONNECT_MAX_TIME;
+		}
+		if(reconnectMaxTime < getReconnectInterval()) {
+			reconnectMaxTime = getReconnectInterval();
+		}
+		return reconnectMaxTime;
 	}
 
 	/**
@@ -282,10 +324,19 @@ public class BleConnector {
 			public void run() {
 				isReconnecting = true;
 				bleCallback.onReconnectStart();
-				long leftTime = 0;
+				boolean isReachReconnectMaxTime = false;
+				long continueTime = 0;
+				long time = 0;
 				while (!isConnected && !isManualDisconnect) {
-					if (leftTime <= 0) {
-						leftTime = reconnectInterval;
+					try {
+						Thread.sleep(Constants.DETECT_TIME_INTERVAL);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					time += Constants.DETECT_TIME_INTERVAL;
+					if (time >= getReconnectInterval()) {
+						continueTime += time;
+						time = 0;
 						try {
 							bleCallback.onReconnecting();
 							connect(true);
@@ -298,16 +349,13 @@ public class BleConnector {
 						} catch (Exception e) {
 							e.printStackTrace();
 						}
-					} else {
-						leftTime -= Constants.DETECT_TIME_INTERVAL;
-					}
-					try {
-						Thread.sleep(Constants.DETECT_TIME_INTERVAL);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
+						if(continueTime > getReconnectMaxTime()) {
+							isReachReconnectMaxTime = true;
+							break;
+						}
 					}
 				}
-				bleCallback.onReconnectEnd();
+				bleCallback.onReconnectEnd(isReachReconnectMaxTime);
 				isReconnecting = false;
 			}
 		}).start();

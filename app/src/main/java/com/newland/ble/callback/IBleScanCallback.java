@@ -1,31 +1,26 @@
 package com.newland.ble.callback;
 
-import android.bluetooth.BluetoothAdapter.LeScanCallback;
-
-import com.newland.ble.BleScanFilter;
+import android.bluetooth.BluetoothDevice;
 
 /**
  * Ble扫描回调<br>
- * 
- * 需要在{@link #onLeScan}中记录扫描到的设备,在{@link #onScanFinished}中弹出列表供用户选择连接的设备<br>
- * 或者在{@link #onLeScan}中发现所需的设备之后,调用{@link BleScanFilter#stopLeScan}停止搜索,然后连接相应设备
- * 
+ *
  * @author chy
  */
-public interface IBleScanCallback extends LeScanCallback {
+public interface IBleScanCallback {
 
-	/**
-	 * 蓝牙未打开
-	 */
+	/** 蓝牙未打开 */
 	void onBluetoothNotOpen();
 
-	/**
-	 * 当扫描时间到, 然后正常结束时, 会回调该方法
-	 */
+	/** 开始扫描 */
 	void onScanStarted();
 
-	/**
-	 * "扫描时间到"或者"手动停止扫描"
-	 */
+	/** 每扫描到一个设备调用一次该函数 */
+	void onScanResult(BluetoothDevice paramBluetoothDevice, int rssi);
+
+	/** "扫描时间到"或者"手动停止扫描" */
 	void onScanFinished();
+
+	/** 扫描出错(仅当API>21时有意义),自动重启蓝牙 */
+	void onScanFail(int errorCode);
 }
